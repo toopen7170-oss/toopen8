@@ -5,7 +5,7 @@ package.domain = org.toopen7170
 source.dir = .
 source.include_exts = py,png,jpg,ttf,yml
 version = 0.1
-requirements = python3,kivy,android,pyjnius
+requirements = python3,kivy==2.3.0,android,pyjnius
 
 orientation = portrait
 fullscreen = 0

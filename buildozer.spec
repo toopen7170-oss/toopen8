@@ -15,7 +15,6 @@ icon.filename = icon.png
 android.api = 34
 android.minapi = 21
 android.ndk = 26b
-# 라이선스 자동 동의 강제
 android.accept_sdk_license = True
 android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, READ_MEDIA_IMAGES
 

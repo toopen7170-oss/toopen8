@@ -24,13 +24,11 @@ jobs:
 
       - name: Build with Environment Isolation
         run: |
-          # NDK 간섭 제거
           unset ANDROID_NDK_HOME
           unset ANDROID_NDK_LATEST_HOME
           export PATH=$PATH:$HOME/.local/bin
-          # 라이선스 자동 동의 및 빌드 수행
+          # 빌드 실패 시 즉시 중단하여 유령 성공 방지
           yes | buildozer android debug
-        continue-on-error: true
 
       - name: Upload Build Log
         if: always()
@@ -43,4 +41,4 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: PristonTale-APK
-          path: bin/*.apk
+          path: bin/

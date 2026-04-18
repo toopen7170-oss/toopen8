@@ -1,0 +1,25 @@
+[app]
+title = PristonTale
+package.name = pristontale
+package.domain = org.toopen7170
+source.dir = .
+source.include_exts = py,png,jpg,ttf,yml
+version = 0.1
+requirements = python3,kivy,android,pyjnius
+
+orientation = portrait
+fullscreen = 0
+android.archs = arm64-v8a
+
+# 아이콘 및 리소스
+icon.filename = icon.png
+
+# Android API 34 및 NDK r26b 고정
+android.api = 34
+android.minapi = 21
+android.ndk = 26b
+android.permissions = READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, READ_MEDIA_IMAGES
+
+[buildozer]
+log_level = 2
+warn_on_root = 1

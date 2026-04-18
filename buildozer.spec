@@ -10,11 +10,8 @@ requirements = python3,kivy,android,pyjnius
 orientation = portrait
 fullscreen = 0
 android.archs = arm64-v8a
-
-# 아이콘 및 리소스
 icon.filename = icon.png
 
-# Android API 34 및 NDK r26b 고정
 android.api = 34
 android.minapi = 21
 android.ndk = 26b

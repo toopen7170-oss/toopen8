@@ -13,7 +13,7 @@ from kivy.uix.filechooser import FileChooserIconView
 from kivy.core.text import LabelBase
 from kivy.utils import platform
 
-# [전수 검사 완료] 폰트 및 오류 로그 설정
+# [전수 검사 완료] 폰트 및 로그 설정
 font_path = "font.ttf"
 if os.path.exists(font_path):
     LabelBase.register(name="CustomFont", fn_regular=font_path)
@@ -101,8 +101,8 @@ class PristonTaleApp(App):
         chooser = FileChooserIconView(multiselect=True)
         content.add_widget(chooser)
         btn_layout = BoxLayout(size_hint_y=None, height=50)
-        btn_layout.add_widget(Button(text="저장", font_name=f_name if os.path.exists(font_path) else None))
-        btn_layout.add_widget(Button(text="삭제", font_name=f_name if os.path.exists(font_path) else None))
+        btn_layout.add_widget(Button(text="저장", font_name="CustomFont" if os.path.exists(font_path) else None))
+        btn_layout.add_widget(Button(text="삭제", font_name="CustomFont" if os.path.exists(font_path) else None))
         btn_layout.add_widget(Button(text="닫기", on_release=lambda x: popup.dismiss()))
         content.add_widget(btn_layout)
         popup = Popup(title="사진 선택", content=content, size_hint=(0.9, 0.9))

@@ -1,4 +1,4 @@
-name: Project Master Android Build
+name: PristonTale Android Build
 
 on:
   push:
@@ -19,12 +19,12 @@ jobs:
       - name: Install dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libffi-dev gzip libssl-dev libsqlite3-dev zlib1g-dev ffmpeg libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev libportmidi-dev libswscale-dev libavformat-dev libavcodec-dev libgstreamer1.0-dev gstreamer1.0-plugins-base gstreamer1.0-plugins-good gstreamer1.0-plugins-bad gstreamer1.0-plugins-ugly gstreamer1.0-libav libgstreamer-plugins-base1.0-dev
+          sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev
           pip install --user --upgrade Cython==0.29.33 buildozer
 
       - name: Build with Environment Isolation
         run: |
-          # 제3원칙: 환경 절연 설정 (NDK v27 간섭 차단)
+          # NDK v27 간섭 방지
           unset ANDROID_NDK_HOME
           unset ANDROID_NDK_LATEST_HOME
           export PATH=$PATH:$HOME/.local/bin
@@ -41,5 +41,5 @@ jobs:
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: ProjectMaster-APK
+          name: PristonTale-APK
           path: bin/*.apk

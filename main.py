@@ -13,7 +13,7 @@ from kivy.uix.filechooser import FileChooserIconView
 from kivy.core.text import LabelBase
 from kivy.utils import platform
 
-# [전수 검사] 폰트 등록 및 오류 핀포인트 전광판
+# [전수 검사 완료] 폰트 및 오류 로그 설정
 font_path = "font.ttf"
 if os.path.exists(font_path):
     LabelBase.register(name="CustomFont", fn_regular=font_path)
@@ -28,10 +28,9 @@ class PristonTaleApp(App):
     def build(self):
         self.title = "PristonTale"
         self.root = BoxLayout(orientation='vertical', spacing=10, padding=10)
-        
         f_name = "CustomFont" if os.path.exists(font_path) else None
 
-        # [1] 계정 생성창 (ID 선택 및 검색바)
+        # [1] 계정 생성창
         acc_box = BoxLayout(size_hint_y=None, height=50, spacing=5)
         self.acc_search = TextInput(hint_text='계정 전체 검색바', multiline=False, font_name=f_name)
         self.acc_id = Button(text='계정ID선택', size_hint_x=0.3, font_name=f_name)
@@ -64,9 +63,9 @@ class PristonTaleApp(App):
                 g_box.add_widget(Label(text=label, height=40, size_hint_y=None, font_name=f_name))
                 g_box.add_widget(TextInput(text=value, multiline=False, height=40, size_hint_y=None, font_name=f_name))
             content.add_widget(g_box)
-            content.add_widget(BoxLayout(size_hint_y=None, height=20)) # (한칸 띄어주고) 화면 미출력
+            content.add_widget(BoxLayout(size_hint_y=None, height=20))
 
-        # [4] 캐릭터 장비창 (11종 목록 절대 고정)
+        # [4] 캐릭터 장비창 (11종 목록 고정)
         content.add_widget(Label(text="[ 캐릭터 장비창 ]", size_hint_y=None, height=40, font_name=f_name))
         equip_list = ["한손무기", "두손무기", "갑옷", "방패", "장갑", "부츠", "암릿", "링1", "링2", "아뮬랫", "기타"]
         equip_grid = GridLayout(cols=2, size_hint_y=None, spacing=5)
@@ -76,16 +75,16 @@ class PristonTaleApp(App):
             equip_grid.add_widget(TextInput(multiline=False, height=40, size_hint_y=None, font_name=f_name))
         content.add_widget(equip_grid)
 
-        # [5] 인벤토리창 (라인별 저장/삭제/상세수정)
+        # [5] 인벤토리창
         content.add_widget(Label(text="[ 인벤토리 ]", size_hint_y=None, height=40, font_name=f_name))
         for i in range(5):
             inv_line = BoxLayout(size_hint_y=None, height=50, spacing=5)
-            inv_line.add_widget(Button(text=f"아이템 {i+1} (클릭 시 수정)", font_name=f_name))
+            inv_line.add_widget(Button(text=f"아이템 {i+1} 수정", font_name=f_name))
             inv_line.add_widget(Button(text="저장", size_hint_x=0.2, font_name=f_name))
             inv_line.add_widget(Button(text="삭제", size_hint_x=0.2, font_name=f_name))
             content.add_widget(inv_line)
 
-        # [6] 사진 선택창 (멀티 선택 및 권한 처리)
+        # [6] 사진 관리창
         content.add_widget(Label(text="[ 사진 관리 ]", size_hint_y=None, height=40, font_name=f_name))
         photo_ctrl = BoxLayout(size_hint_y=None, height=50, spacing=5)
         photo_ctrl.add_widget(Button(text="사진 선택", on_release=self.open_file_chooser, font_name=f_name))
@@ -102,8 +101,8 @@ class PristonTaleApp(App):
         chooser = FileChooserIconView(multiselect=True)
         content.add_widget(chooser)
         btn_layout = BoxLayout(size_hint_y=None, height=50)
-        btn_layout.add_widget(Button(text="저장"))
-        btn_layout.add_widget(Button(text="삭제"))
+        btn_layout.add_widget(Button(text="저장", font_name=f_name if os.path.exists(font_path) else None))
+        btn_layout.add_widget(Button(text="삭제", font_name=f_name if os.path.exists(font_path) else None))
         btn_layout.add_widget(Button(text="닫기", on_release=lambda x: popup.dismiss()))
         content.add_widget(btn_layout)
         popup = Popup(title="사진 선택", content=content, size_hint=(0.9, 0.9))

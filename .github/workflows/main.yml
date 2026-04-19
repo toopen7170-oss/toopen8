@@ -17,28 +17,27 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Legacy Engine Compatibility)
+      - name: Install Build Essentials (Python 3.12 Bridge Fix)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 1. 가상환경 완전 초기화 및 버전 수동 조절
+          # 1. 가상환경 완전 초기화
           rm -rf $HOME/build_env
           python3 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           
-          # 2. Python 3.12의 결함을 메우기 위한 구버전 도구 세트 설치
-          # pip는 최신으로 유지하되, setuptools를 66버전으로 고정하는 것이 핵심입니다.
+          # 2. Python 3.12 호환성 강제 패치 (구형 distutils 복원)
           python -m pip install --upgrade pip
-          pip install "setuptools<67.0.0" "wheel" "Cython<3.0"
+          pip install "setuptools<60.0.0" "wheel" "Cython<3.0"
           
           # 3. Buildozer 및 p4a 설치
           pip install buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Hard-Block & Build Execution
+      - name: Hard-Execution & NDK Perms Fix
         run: |
           source $HOME/build_env/bin/activate
           
@@ -50,17 +49,16 @@ jobs:
           export ANDROID_NDK_LATEST_HOME=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # 5. [중요] Python 3.12에서 사라진 라이브러리를 가상환경 것으로 강제 우회
+          # 5. [핵심] NDK 실행 권한 강제 부여 (툴체인 생성 오류 방지)
+          find $NDK_PATH -type f -name "*" -exec chmod +x {} + || true
+          
+          # 6. 구형 라이브러리 참조 강제 우회 설정
           export SETUPTOOLS_USE_DISTUTILS=local
           
-          # 6. Ubuntu 24 라이브러리 호환성 링크
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
-          
-          # 7. 이전의 실패 잔재 제거
+          # 7. 오염된 빌드 잔재 완전 제거
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 8. 빌드 강제 집행
+          # 8. 빌드 강제 집행 (가짜 경로 차단 모드)
           buildozer --verbose android debug
 
       - name: Upload APK

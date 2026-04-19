@@ -11,12 +11,10 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      # 1. 파이썬 3.11 강제 할당 (3.12의 ImpImporter/distutils 에러 물리적 제거)
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -24,48 +22,49 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Zero-Error Environment)
+      - name: Install Build Essentials & Manual NDK r26b
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6
           
-          # 2. 가상환경 생성 및 시스템 패키지 완전 격리
+          # 1. 가상환경 세팅
           python -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
-          
-          # 3. 호환성 보장 버전으로 도구 설치 (재귀 검증 완료)
-          python -m pip install --upgrade pip setuptools wheel
-          pip install --isolated Cython==0.29.33 buildozer
-          pip install --isolated git+https://github.com/kivy/python-for-android.git
+          pip install --upgrade pip setuptools wheel
+          pip install Cython==0.29.33 buildozer
+          pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Hard-Block & Final Execution
+          # 2. [핵심] NDK r26b 수동 다운로드 및 설치 (빈 상자 문제 해결)
+          mkdir -p $HOME/.buildozer/android/platform
+          cd $HOME/.buildozer/android/platform
+          curl -L https://dl.google.com/android/repository/android-ndk-r26b-linux.zip -o ndk.zip
+          unzip -q ndk.zip
+          mv android-ndk-r26b android-ndk-r26b-fixed
+          rm ndk.zip
+
+      - name: Hard-Block & Build Start
         run: |
           source $HOME/build_env/bin/activate
           
-          # 4. NDK r26b 경로 선점 및 디렉토리 강제 생성
-          NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b"
-          mkdir -p $NDK_PATH
-          
-          # 5. 환경 변수 독점 설정 (v27/v29 침투 경로 100% 차단)
+          # 3. NDK 경로를 우리가 설치한 r26b-fixed로 강제 고정
+          NDK_PATH="$HOME/.buildozer/android/platform/android-ndk-r26b-fixed"
           export ANDROID_NDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
           export ANDROID_NDK_ROOT=$NDK_PATH
-          export ANDROID_NDK_LATEST_HOME=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # 6. NDK 내부 바이너리 실행 권한 강제 부여
-          find $NDK_PATH -type f -name "*" -exec chmod +x {} + || true
+          # 4. 컴파일러(CC) 경로를 PATH 최상단에 추가
+          export PATH="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
           
-          # 7. Ubuntu 24 라이브러리 심볼릭 링크 재구축
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
-          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
+          # 5. 권한 부여
+          chmod -R +x $NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/
           
-          # 8. 오염된 캐시 정밀 타격 제거
+          # 6. 이전 오염 데이터 제거
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 9. 빌드 집행 (구형 라이브러리 참조 우회 모드)
+          # 7. 빌드 실행
           SETUPTOOLS_USE_DISTUTILS=local buildozer --verbose android debug
 
       - name: Upload APK
@@ -73,10 +72,3 @@ jobs:
         with:
           name: PristonTale-APK
           path: bin/*.apk
-
-      - name: Upload Build Log on Failure
-        if: failure()
-        uses: actions/upload-artifact@v4
-        with:
-          name: build-log
-          path: .buildozer/android/platform/build-arm64-v8a/build.log

@@ -17,24 +17,26 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Ubuntu 24.04 Optimized)
+      - name: Install Build Essentials
         run: |
           sudo apt-get update
-          # 컴파일 정체 구간 돌파를 위한 핵심 라이브러리 강제 주입
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config
           pip install --user --upgrade Cython==0.29.33 buildozer
 
-      - name: Build Android APK (Deep Isolation)
+      - name: Build Android APK (Source Cleanup Mode)
         env:
-          # 서버의 기본 NDK/SDK 경로가 빌드를 방해하지 않도록 완전히 격리
           ANDROID_NDK_HOME: ""
           ANDROID_NDK_ROOT: ""
-          ANDROID_HOME: ""
         run: |
           export PATH=$PATH:$HOME/.local/bin
-          # --verbose 모드로 컴파일 과정을 실시간 감시하며 빌드 진행
-          buildozer --verbose android debug || (echo "--- ERROR DETECTED ---" && grep -r "error:" .buildozer/android/platform/build-arm64-v8a/ && exit 1)
+          # [핵심] 빌드 전 불필요한 iOS/macOS 소스 강제 제거 로직 주입
+          # 컴파일러가 엉뚱한 파일을 읽지 못하게 차단합니다.
+          buildozer --verbose android debug || ( \
+            echo "--- CLEANING CONFLICTING SOURCES ---" && \
+            find .buildozer/android/platform/build-arm64-v8a/ -type d -name "Xcode" -exec rm -rf {} + && \
+            find .buildozer/android/platform/build-arm64-v8a/ -type d -name "macOS" -exec rm -rf {} + && \
+            buildozer --verbose android debug )
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -42,7 +44,7 @@ jobs:
           name: PristonTale-APK
           path: bin/*.apk
 
-      - name: Upload Build Log on Failure
+      - name: Upload Full Log on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:

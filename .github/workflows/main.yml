@@ -23,7 +23,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install System Dependencies (Full Patch)
+      - name: Install System Dependencies (Final Patch)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
@@ -34,10 +34,9 @@ jobs:
           source $HOME/build_env/bin/activate
           pip install --upgrade pip setuptools wheel
           pip install Cython==0.29.33 buildozer
-          # 매크로 패치가 포함된 p4a 최신 버전 강제 설치
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Configure Clean NDK r26b
+      - name: Configure Clean NDK & Auto-License
         run: |
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
@@ -45,31 +44,35 @@ jobs:
           unzip -q ndk.zip
           mv android-ndk-r26b android-ndk-r26b-fixed
           rm ndk.zip
+          
+          # SDK 라이선스 자동 동의 (빌드 중단 방지)
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Execute Buildozer with Path Isolation
+      - name: Execute Buildozer (Zero-Error Path Isolation)
         run: |
           source $HOME/build_env/bin/activate
           
-          # [핵심] 시스템 기본 NDK 경로를 무력화하고 우리가 설치한 경로로 통일합니다.
+          # 모든 NDK 관련 변수를 'fixed' 경로로 단일화하여 충돌 제거
           NDK_PATH="$HOME/.buildozer/android/platform/android-ndk-r26b-fixed"
           
           export ANDROID_NDK=$NDK_PATH
+          export ANDROIDNDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
           export ANDROID_NDK_ROOT=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # [매크로 오류 해결] 시스템 aclocal 경로 지정
+          # 매크로 및 터미널 환경 설정
           export ACLOCAL_PATH="/usr/share/aclocal"
           export TERM=dumb
           
-          # 빌드 전 잔재 소거
+          # 이전 빌드 실패 데이터 완전 삭제
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 빌드 실행 (Distutils 호환성 모드 유지)
+          # [핵심] 빌드 실행
           SETUPTOOLS_USE_DISTUTILS=local buildozer --verbose android debug
 
       - name: Upload Verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: PT1-Manager-Final
+          name: PT1-Manager-Final-Build
           path: bin/*.apk

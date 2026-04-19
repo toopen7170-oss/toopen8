@@ -20,11 +20,12 @@ jobs:
       - name: Install Build Essentials (Noble Absolute Fix)
         run: |
           sudo apt-get update
+          # Ubuntu 24 필수 라이브러리 및 격리 환경 도구 설치
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 시스템 환경과 격리된 빌드 전용 가상환경 생성 및 도구 설치
+          # 시스템 환경과 분리된 빌드 전용 가상환경 생성
           python3 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip
@@ -36,15 +37,15 @@ jobs:
           # 가상환경 활성화
           source $HOME/build_env/bin/activate
           
-          # 1. 하위 호환성 링크 강제 생성
+          # 1. NDK 하위 호환성 심볼릭 링크 패치
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 2. 오염된 빌드 폴더 제거
+          # 2. 오염된 빌드 잔재 소거
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 3. [핵심] 시스템 변수 v27을 명령줄에서 직접 공백으로 덮어쓰기
-          # ANDROID_NDK를 ""로 고정하여 서버가 주입한 v27 경로를 무효화합니다.
+          # 3. [최후의 수단] 시스템 변수 v27을 명령줄에서 직접 압살
+          # ANDROID_NDK="" 설정을 통해 서버가 주입한 경로를 무효화하고 r26b로 고정합니다.
           ANDROID_NDK="" \
           ANDROID_NDK_HOME="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
           P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b" \

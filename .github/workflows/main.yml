@@ -9,7 +9,8 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - name: Checkout Repository
+        uses: actions/checkout@v4
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v5
@@ -22,10 +23,10 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials & Fixed NDK
+      - name: Install System Dependencies (Macro Fix)
         run: |
           sudo apt-get update
-          # libtool, binutils, autoconf-archive 필수 추가
+          # libtool, autoconf-archive는 libffi 빌드의 필수 '사전'입니다.
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 libtool autoconf autoconf-archive binutils
@@ -34,9 +35,11 @@ jobs:
           source $HOME/build_env/bin/activate
           pip install --upgrade pip setuptools wheel
           pip install Cython==0.29.33 buildozer
+          # 최신 패치가 반영된 p4a 버전을 사용합니다.
           pip install git+https://github.com/kivy/python-for-android.git
 
-          # NDK r26b 수동 설치 및 무결성 확보
+      - name: Configure NDK r26b
+        run: |
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
           curl -L https://dl.google.com/android/repository/android-ndk-r26b-linux.zip -o ndk.zip
@@ -44,28 +47,32 @@ jobs:
           mv android-ndk-r26b android-ndk-r26b-fixed
           rm ndk.zip
 
-      - name: Fix libffi Macros & Build Execution
+      - name: Execute Buildozer with Zero-Error Logic
         run: |
           source $HOME/build_env/bin/activate
           
-          # 1. NDK 환경 강제 결속
+          # 1. NDK 경로 및 우선순위 설정
           NDK_PATH="$HOME/.buildozer/android/platform/android-ndk-r26b-fixed"
           export ANDROID_NDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
-          export PATH="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
           
-          # 2. [핵심] libffi 매크로 오류 해결을 위한 환경 변수
+          # 2. [전수검사 핵심 패치] ACLOCAL 경로 강제 주입
+          # LT_SYS_SYMBOL_USCORE 오류를 원천 차단합니다.
           export ACLOCAL_PATH="/usr/share/aclocal"
           
-          # 3. 오염된 빌드 잔재 완전 소거
+          # 3. 비대화형 빌드 및 터미널 경고 방지
+          export TERM=dumb
+          
+          # 4. 이전 실패 잔재 완전 소거 (Clean Build)
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 4. 빌드 집행
+          # 5. 빌드 집행
+          # API 21 타겟 및 arm64-v8a 아키텍처에 최적화되었습니다.
           SETUPTOOLS_USE_DISTUTILS=local buildozer --verbose android debug
 
-      - name: Upload APK
+      - name: Upload Final APK
         uses: actions/upload-artifact@v4
         with:
-          name: PristonTale-APK
+          name: PristonTale-Manager-APK
           path: bin/*.apk

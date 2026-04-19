@@ -17,21 +17,24 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials
+      - name: Install Build Essentials (Ubuntu 24.04 Optimized)
         run: |
           sudo apt-get update
-          # Ubuntu 24.04 대응 필수 패키지 강제 주입
-          sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld
+          # 컴파일 정체 구간 돌파를 위한 핵심 라이브러리 강제 주입
+          sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
+          libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config
           pip install --user --upgrade Cython==0.29.33 buildozer
 
-      - name: Build Android APK
+      - name: Build Android APK (Deep Isolation)
         env:
+          # 서버의 기본 NDK/SDK 경로가 빌드를 방해하지 않도록 완전히 격리
           ANDROID_NDK_HOME: ""
           ANDROID_NDK_ROOT: ""
+          ANDROID_HOME: ""
         run: |
           export PATH=$PATH:$HOME/.local/bin
-          # 비대화형 자동 빌드 및 실시간 로그 출력 강화
-          buildozer --verbose android debug || (grep -r "error:" .buildozer/android/platform/build-arm64-v8a/ && exit 1)
+          # --verbose 모드로 컴파일 과정을 실시간 감시하며 빌드 진행
+          buildozer --verbose android debug || (echo "--- ERROR DETECTED ---" && grep -r "error:" .buildozer/android/platform/build-arm64-v8a/ && exit 1)
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
@@ -39,7 +42,7 @@ jobs:
           name: PristonTale-APK
           path: bin/*.apk
 
-      - name: Upload Log on Failure
+      - name: Upload Build Log on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:

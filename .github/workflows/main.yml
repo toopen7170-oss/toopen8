@@ -24,11 +24,11 @@ jobs:
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config
           pip install --user --upgrade Cython==0.29.33 buildozer
 
-      - name: Build Android APK (Absolute Zero Isolation)
+      - name: Absolute Deep Clean & Build
         run: |
           export PATH=$PATH:$HOME/.local/bin
           
-          # [전수 검사 수정 사항 1] 마지막 남은 좀비 변수 'ANDROID_NDK'까지 물리적 말소
+          # 1. 서버 좀비 변수 차단 (이미 검증됨)
           export ANDROID_NDK=""
           export ANDROID_NDK_HOME=""
           export ANDROID_NDK_ROOT=""
@@ -36,11 +36,15 @@ jobs:
           export ANDROID_HOME=""
           export ANDROID_SDK_ROOT=""
           
-          # [전수 검사 수정 사항 2] 빌드 명령 시점에 인라인(Inline) 변수 주입으로 서버 간섭 100% 차단
-          # 실패 시 Xcode/macOS 관련 불필요한 헤더를 자동 삭제 후 재빌드 시도
-          ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug || ( \
-            echo "--- Critical: Cleaning SDL2 Conflict Sources ---" && \
-            find .buildozer/android/platform/build-arm64-v8a/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
+          # 2. [추가] 오염된 빌드 캐시 물리적 삭제 (Deep Clean)
+          # 이전 빌드의 잔재가 경로 충돌을 일으키지 않도록 플랫폼 폴더를 비웁니다.
+          rm -rf .buildozer/android/platform/build-arm64-v8a
+          
+          # 3. 빌드 실행 및 실시간 소스 교정
+          # SDL2_mixer가 잘못된 헤더를 찾기 전에 Xcode 관련 폴더를 미리 삭제합니다.
+          buildozer --verbose android debug || ( \
+            echo "--- Critical Cleaning Step ---" && \
+            find .buildozer/android/platform/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
             ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug )
 
       - name: Upload APK

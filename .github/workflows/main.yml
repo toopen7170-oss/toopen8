@@ -22,21 +22,21 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials & Manual NDK r26b
+      - name: Install Build Essentials & Fixed NDK
         run: |
           sudo apt-get update
+          # libtool, binutils, autoconf-archive 필수 추가
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
-          libncursesw6 libtinfo6 libstdc++6
+          libncursesw6 libtinfo6 libstdc++6 libtool autoconf autoconf-archive binutils
           
-          # 1. 가상환경 세팅
           python -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip setuptools wheel
           pip install Cython==0.29.33 buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-          # 2. [핵심] NDK r26b 수동 다운로드 및 설치 (빈 상자 문제 해결)
+          # NDK r26b 수동 설치 및 무결성 확보
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
           curl -L https://dl.google.com/android/repository/android-ndk-r26b-linux.zip -o ndk.zip
@@ -44,27 +44,24 @@ jobs:
           mv android-ndk-r26b android-ndk-r26b-fixed
           rm ndk.zip
 
-      - name: Hard-Block & Build Start
+      - name: Fix libffi Macros & Build Execution
         run: |
           source $HOME/build_env/bin/activate
           
-          # 3. NDK 경로를 우리가 설치한 r26b-fixed로 강제 고정
+          # 1. NDK 환경 강제 결속
           NDK_PATH="$HOME/.buildozer/android/platform/android-ndk-r26b-fixed"
           export ANDROID_NDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
-          export ANDROID_NDK_ROOT=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
-          
-          # 4. 컴파일러(CC) 경로를 PATH 최상단에 추가
           export PATH="$NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin:$PATH"
           
-          # 5. 권한 부여
-          chmod -R +x $NDK_PATH/toolchains/llvm/prebuilt/linux-x86_64/bin/
+          # 2. [핵심] libffi 매크로 오류 해결을 위한 환경 변수
+          export ACLOCAL_PATH="/usr/share/aclocal"
           
-          # 6. 이전 오염 데이터 제거
+          # 3. 오염된 빌드 잔재 완전 소거
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 7. 빌드 실행
+          # 4. 빌드 집행
           SETUPTOOLS_USE_DISTUTILS=local buildozer --verbose android debug
 
       - name: Upload APK

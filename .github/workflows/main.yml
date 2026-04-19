@@ -17,40 +17,41 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Ubuntu 24 Fix)
+      - name: Install Build Essentials (Ubuntu 24 Power-Fix)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev
           
-          # Ubuntu 24의 pip 제한을 뚫고 강제 설치
-          pip install --user --upgrade --break-system-packages Cython==0.29.33 buildozer virtualenv
+          # Ubuntu 24에서 p4a의 최신 기능을 사용하기 위해 master 브랜치 설치
+          pip install --user --upgrade --break-system-packages Cython==0.29.33 buildozer
+          pip install --user --upgrade --break-system-packages git+https://github.com/kivy/python-for-android.git
 
-      - name: Absolute Deep Clean & Environment Patch
+      - name: Absolute Deep Clean & NDK Path Patch
         run: |
           export PATH=$PATH:$HOME/.local/bin
           
-          # 1. NDK 하위 호환성을 위한 라이브러리 심볼릭 링크 강제 생성 (Ubuntu 24 필살기)
+          # 1. NDK 툴체인용 심볼릭 링크 패치
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 2. 서버 간섭 변수 완전 봉쇄
+          # 2. 서버 유령 변수 완전 소거 및 NDK 경로 강제 고정
           export ANDROID_NDK=""
           export ANDROID_NDK_HOME=""
-          export ANDROID_NDK_ROOT=""
-          export ANDROID_NDK_LATEST_HOME=""
           export ANDROID_HOME=""
-          export ANDROID_SDK_ROOT=""
+          export P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b"
           
-          # 3. 오염된 빌드 캐시 초기화
+          # 3. 오염된 빌드 캐시 정화
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 4. 인라인 변수 주입 빌드 및 SDL2 소스 정화 로직 결합
-          ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug || ( \
-            echo "--- Purging Incompatible Headers ---" && \
+          # 4. 강제 경로 주입 빌드 실행
+          P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
+          ANDROID_NDK="" ANDROID_NDK_HOME="" buildozer --verbose android debug || ( \
+            echo "--- Emergency Fix: Cleaning SDL2 & Retrying ---" && \
             find .buildozer/android/platform/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
-            ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug )
+            P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
+            ANDROID_NDK="" ANDROID_NDK_HOME="" buildozer --verbose android debug )
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

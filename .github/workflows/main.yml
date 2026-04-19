@@ -24,18 +24,20 @@ jobs:
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config
           pip install --user --upgrade Cython==0.29.33 buildozer
 
-      - name: Build Android APK (Source Cleanup Mode)
-        env:
-          ANDROID_NDK_HOME: ""
-          ANDROID_NDK_ROOT: ""
+      - name: Build Android APK (Absolute Isolation)
         run: |
           export PATH=$PATH:$HOME/.local/bin
-          # [핵심] 빌드 전 불필요한 iOS/macOS 소스 강제 제거 로직 주입
-          # 컴파일러가 엉뚱한 파일을 읽지 못하게 차단합니다.
+          # 서버에 숨겨진 모든 안드로이드 관련 변수를 강제로 삭제하여 간섭 차단
+          unset ANDROID_NDK_HOME
+          unset ANDROID_NDK_ROOT
+          unset ANDROID_NDK_LATEST_HOME
+          unset ANDROID_SDK_ROOT
+          unset ANDROID_HOME
+          
+          # [핵심] 빌드 시작 전 Xcode/macOS 관련 파일이 잔존할 경우 컴파일 충돌 방지
           buildozer --verbose android debug || ( \
-            echo "--- CLEANING CONFLICTING SOURCES ---" && \
-            find .buildozer/android/platform/build-arm64-v8a/ -type d -name "Xcode" -exec rm -rf {} + && \
-            find .buildozer/android/platform/build-arm64-v8a/ -type d -name "macOS" -exec rm -rf {} + && \
+            echo "--- Resolving SDL2_mixer Conflict ---" && \
+            find .buildozer/android/platform/build-arm64-v8a/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
             buildozer --verbose android debug )
 
       - name: Upload APK
@@ -44,7 +46,7 @@ jobs:
           name: PristonTale-APK
           path: bin/*.apk
 
-      - name: Upload Full Log on Failure
+      - name: Upload Build Log on Failure
         if: failure()
         uses: actions/upload-artifact@v4
         with:

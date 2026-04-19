@@ -1,4 +1,4 @@
-name: PristonTale Android Build (Final Zero-Error)
+name: PT1 Manager Clean Build 2.0
 
 on:
   push:
@@ -9,80 +9,61 @@ jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - name: Checkout Repository
+      - name: 1. 저장소 체크아웃
         uses: actions/checkout@v4
 
-      - name: Set up Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
-
-      - name: Set up JDK 17
-        uses: actions/setup-java@v4
-        with:
-          java-version: '17'
-          distribution: 'temurin'
-
-      - name: Hard-Fix Environment (Step 1-59 Total Fix)
+      - name: 2. 시스템 환경 초기화 및 필수 도구 설치
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 libtool autoconf autoconf-archive binutils
           
+          # 기존에 꼬였을지 모르는 모든 환경 삭제 후 파이썬 가상환경 재생성
+          rm -rf $HOME/build_env
           python -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip setuptools wheel
-          # [핵심] sh 버전을 강제 고정하여 엔진의 발작을 막습니다.
-          pip install --force-reinstall "sh==2.0.6" Cython==0.29.33 buildozer
-          pip install git+https://github.com/kivy/python-for-android.git
+          # 가장 안정적인 buildozer 및 관련 라이브러리 조합 설치
+          pip install "sh>=2.0,<3.0" "Cython<3.0" buildozer
 
-      - name: NDK Absolute Defense (Typo-Proofing)
+      - name: 3. NDK r25b 정석 설치 (p4a 권장 버전)
         run: |
-          sudo mkdir -p /opt/android
-          sudo chown $USER:$USER /opt/android
-          cd /opt/android
-          curl -L https://dl.google.com/android/repository/android-ndk-r26b-linux.zip -o ndk.zip
+          # 엔진이 오타(rr26b)를 내지 않도록 가장 안정적인 r25b를 표준 경로에 설치합니다.
+          mkdir -p $HOME/.buildozer/android/platform
+          cd $HOME/.buildozer/android/platform
+          curl -L https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -o ndk.zip
           unzip -q ndk.zip
-          
-          # [오류 대처] 엔진이 r26b와 rr26b(오타) 중 무엇을 찾아도 통과하도록 두 가지 이름을 모두 확보합니다.
-          mv android-ndk-r26b android-ndk-r26b_actual
-          ln -s android-ndk-r26b_actual android-ndk-r26b
-          ln -s android-ndk-r26b_actual android-ndk-rr26b
+          mv android-ndk-r25b android-ndk
           rm ndk.zip
 
-      - name: Execute Buildozer (Deceive & Build)
+      - name: 4. SDK 라이선스 및 환경 변수 고정
         run: |
-          source $HOME/build_env/bin/activate
-          NDK_PATH="/opt/android/android-ndk-r26b"
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
           
-          # [엔진 속임수] Buildozer가 git clone을 하기 전에 우리가 직접 엔진을 해당 위치에 심어버립니다.
-          PLATFORM_DIR="$GITHUB_WORKSPACE/.buildozer/android/platform"
-          mkdir -p "$PLATFORM_DIR"
-          cp -r $(python -c 'import pythonforandroid; print(pythonforandroid.__path__[0])') "$PLATFORM_DIR/python-for-android"
-          
-          # buildozer.spec 강제 개조
+          # 빌드 전 spec 파일을 깨끗하게 정돈 (NDK 경로를 우리가 설치한 곳으로 지정)
+          NDK_PATH="$HOME/.buildozer/android/platform/android-ndk"
           if [ -f buildozer.spec ]; then
             sed -i "s|^#\? \?android.ndk_path =.*|android.ndk_path = $NDK_PATH|" buildozer.spec
-            sed -i 's|^#\? \?android.ndk =.*|android.ndk = r26b|' buildozer.spec
+            sed -i 's|^#\? \?android.ndk =.*|android.ndk = 25b|' buildozer.spec
             sed -i 's|^#\? \?android.ndk_api =.*|android.ndk_api = 21|' buildozer.spec
-            sed -i "s|^#\? \?p4a.source_dir =.*|p4a.source_dir = $PLATFORM_DIR/python-for-android|" buildozer.spec
           fi
 
-          # 6중 환경 변수 쇠말뚝
-          export ANDROID_NDK=$NDK_PATH
-          export ANDROIDNDK=$NDK_PATH
-          export ANDROID_NDK_HOME=$NDK_PATH
-          export ANDROID_NDK_ROOT=$NDK_PATH
-          export P4A_ndk_directory=$NDK_PATH
-          export NDK_HOME=$NDK_PATH
+      - name: 5. 정석 빌드 실행 (Clean Build)
+        run: |
+          source $HOME/build_env/bin/activate
+          
+          # 환경 변수를 통해 엔진이 딴길로 새지 않게 가이드라인 제공
+          export ANDROID_NDK_HOME="$HOME/.buildozer/android/platform/android-ndk"
+          export ANT_HOME="/usr/share/ant"
           export SETUPTOOLS_USE_DISTUTILS=local
           
-          # 클린 빌드 집행
+          # 이전 빌드 잔해 삭제 후 빌드 강행
+          buildozer android clean
           buildozer --verbose android debug
 
-      - name: Upload PT1-Manager APK
+      - name: 6. 성공한 APK 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: PT1-Manager-Build-60-Success
+          name: PT1-Manager-Clean-Success
           path: bin/*.apk

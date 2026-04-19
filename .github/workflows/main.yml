@@ -17,25 +17,28 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Noble Pure Fix)
+      - name: Install Build Essentials (Python 3.12 Absolute Fix)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 가상환경 구축 및 핵심 도구 강제 고정
-          python3 -m venv $HOME/build_env
+          # 1. 가상환경 생성 (시스템 패키지 허용으로 distutils 우회)
+          python3 -m venv --system-site-packages $HOME/build_env
           source $HOME/build_env/bin/activate
+          
+          # 2. Python 3.12에서 삭제된 distutils를 복구하기 위한 핵심 도구 설치
           pip install --upgrade pip
+          pip install "setuptools<60.0.0" # 구형 distutils 호환성을 유지하는 버전
           pip install Cython==0.29.33 buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Final System Isolation & Build
+      - name: Absolute Environment Purge & Build
         run: |
           source $HOME/build_env/bin/activate
           
-          # 1. 시스템 변수 차단 상태 유지 (r26b 독점)
+          # 3. 모든 NDK 경로를 r26b로 철저히 고정 (차단 유지)
           NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b"
           export ANDROID_NDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
@@ -43,19 +46,14 @@ jobs:
           export ANDROID_NDK_LATEST_HOME=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # 2. Ubuntu 24 파이썬 보안 정책 우회 (Distutils 고정)
-          export SETUPTOOLS_USE_DISTUTILS=stdlib
-          
-          # 3. 시스템 라이브러리 링크 강제 재구축
+          # 4. Ubuntu 24 전용 라이브러리 심볼릭 링크
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 4. 플랫폼 캐시 및 빌드 잔재 완전 소거
+          # 5. 오염된 플랫폼 캐시 제거
           rm -rf .buildozer/android/platform/build-arm64-v8a
-          rm -rf .buildozer/android/platform/python-for-android
           
-          # 5. 빌드 실행 (디버그 모드 강화)
-          # --profile 설정을 통해 빌드 엔진의 세부 환경 설정을 초기화합니다.
+          # 6. 빌드 실행
           buildozer --verbose android debug
 
       - name: Upload APK

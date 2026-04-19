@@ -23,7 +23,7 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install System Dependencies
+      - name: Install System Dependencies & Library Fix
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
@@ -33,52 +33,55 @@ jobs:
           python -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip setuptools wheel
-          pip install Cython==0.29.33 buildozer
+          # 의존성 충돌 방지를 위해 sh 라이브러리 버전을 강제 조정합니다.
+          pip install "sh>=2.0,<3.0" Cython==0.29.33 buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Configure Clean NDK r26b
+      - name: Pre-Configure NDK r26b (Manual Placement)
         run: |
+          # Buildozer가 스스로 다운로드하지 못하게 우리가 경로를 선점합니다.
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
           curl -L https://dl.google.com/android/repository/android-ndk-r26b-linux.zip -o ndk.zip
           unzip -q ndk.zip
-          # 경로를 빌드 엔진이 예상하는 기본 이름으로 맞추어 혼선을 방지합니다.
-          mv android-ndk-r26b android-ndk-r26b-fixed
+          # 빌드 엔진이 내부적으로 찾는 표준 이름으로 폴더명을 고정합니다.
+          mv android-ndk-r26b android-ndk-r26b
           rm ndk.zip
           
-          # SDK 라이선스 강제 동의
+          # SDK 라이선스 사전 승인
           yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: Hard-Fix buildozer.spec & Execute
+      - name: Execute Buildozer (Offline NDK Mode)
         run: |
           source $HOME/build_env/bin/activate
           
-          # [핵심 수정] spec 파일 내의 NDK 경로 설정을 강제로 우리 경로로 바꿉니다.
-          # 빌드 엔진이 내부적으로 변수를 덮어쓰는 것을 원천 봉쇄합니다.
+          # [핵심] Buildozer가 NDK를 다시 받지 않고 로컬 경로를 쓰도록 spec 파일을 강제 개조합니다.
           if [ -f buildozer.spec ]; then
-            sed -i 's|^#\? \?android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r26b-fixed|' buildozer.spec
+            sed -i 's|^#\? \?android.ndk_path =.*|android.ndk_path = /home/runner/.buildozer/android/platform/android-ndk-r26b|' buildozer.spec
             sed -i 's|^#\? \?android.ndk =.*|android.ndk = r26b|' buildozer.spec
+            # 자동 다운로드 방지를 위해 NDK 버전을 명시적으로 고정
+            sed -i 's|^#\? \?android.ndk_api =.*|android.ndk_api = 21|' buildozer.spec
           fi
 
-          # 환경 변수 4중 방어막
-          export NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b-fixed"
+          # 환경 변수 5중 잠금 (p4a 및 buildozer 변수 통합)
+          export NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b"
           export ANDROID_NDK=$NDK_PATH
           export ANDROIDNDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
           export ANDROID_NDK_ROOT=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # 매크로 및 호환성 설정
+          # 매크로 및 빌드 환경 안정화
           export ACLOCAL_PATH="/usr/share/aclocal"
           export SETUPTOOLS_USE_DISTUTILS=local
           export TERM=dumb
           
-          # 클린 빌드 집행
+          # 잔재 제거 후 빌드 시작
           rm -rf .buildozer/android/platform/build-arm64-v8a
           buildozer --verbose android debug
 
-      - name: Upload Final APK
+      - name: Upload Verified APK
         uses: actions/upload-artifact@v4
         with:
-          name: PT1-Manager-Perfect-Build
+          name: PT1-Manager-Ultimate-Build
           path: bin/*.apk

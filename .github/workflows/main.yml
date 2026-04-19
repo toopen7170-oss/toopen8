@@ -17,22 +17,25 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Ultimate Fix for Ubuntu 24)
+      - name: Install Build Essentials (Ubuntu 24 Fix)
         run: |
           sudo apt-get update
-          # Ubuntu 24 환경 최적화 패키지 및 Python 핵심 의존성 설치
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
-          libncurses6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev
+          libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev
           
-          # Cython 버전을 안정화된 0.29.33으로 고정하여 컴파일 오류 차단
-          pip install --user --upgrade Cython==0.29.33 buildozer virtualenv
+          # Ubuntu 24의 pip 제한을 뚫고 강제 설치
+          pip install --user --upgrade --break-system-packages Cython==0.29.33 buildozer virtualenv
 
-      - name: Absolute Deep Clean & Build
+      - name: Absolute Deep Clean & Environment Patch
         run: |
           export PATH=$PATH:$HOME/.local/bin
           
-          # 1. 서버 간섭 변수 완전 봉쇄 (진공 상태 유지)
+          # 1. NDK 하위 호환성을 위한 라이브러리 심볼릭 링크 강제 생성 (Ubuntu 24 필살기)
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
+          sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
+          
+          # 2. 서버 간섭 변수 완전 봉쇄
           export ANDROID_NDK=""
           export ANDROID_NDK_HOME=""
           export ANDROID_NDK_ROOT=""
@@ -40,12 +43,12 @@ jobs:
           export ANDROID_HOME=""
           export ANDROID_SDK_ROOT=""
           
-          # 2. 오염된 빌드 캐시 물리적 초기화
+          # 3. 오염된 빌드 캐시 초기화
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 3. 인라인 변수 주입 빌드 및 SDL2 소스 정화 로직 실행
+          # 4. 인라인 변수 주입 빌드 및 SDL2 소스 정화 로직 결합
           ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug || ( \
-            echo "--- Purging Incompatible Fragments ---" && \
+            echo "--- Purging Incompatible Headers ---" && \
             find .buildozer/android/platform/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
             ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug )
 

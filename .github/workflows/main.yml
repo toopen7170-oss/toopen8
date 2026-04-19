@@ -24,24 +24,24 @@ jobs:
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config
           pip install --user --upgrade Cython==0.29.33 buildozer
 
-      - name: Build Android APK (Double Guard Mode)
+      - name: Build Android APK (Absolute Zero Isolation)
         run: |
-          # 1. 실행 경로 확보
           export PATH=$PATH:$HOME/.local/bin
           
-          # 2. [강력 조치] 현재 쉘 세션에서 즉시 좀비 변수 박멸
+          # [전수 검사 수정 사항 1] 마지막 남은 좀비 변수 'ANDROID_NDK'까지 물리적 말소
+          export ANDROID_NDK=""
           export ANDROID_NDK_HOME=""
           export ANDROID_NDK_ROOT=""
           export ANDROID_NDK_LATEST_HOME=""
           export ANDROID_HOME=""
           export ANDROID_SDK_ROOT=""
           
-          # 3. Buildozer 실행 시 환경 변수를 직접 초기화하며 명령 전달
-          # 변수가 살아날 틈을 주지 않고 명령줄에서 직접 제어합니다.
-          ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug || ( \
-            echo "--- Resolving SDL2_mixer Source Conflict ---" && \
+          # [전수 검사 수정 사항 2] 빌드 명령 시점에 인라인(Inline) 변수 주입으로 서버 간섭 100% 차단
+          # 실패 시 Xcode/macOS 관련 불필요한 헤더를 자동 삭제 후 재빌드 시도
+          ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug || ( \
+            echo "--- Critical: Cleaning SDL2 Conflict Sources ---" && \
             find .buildozer/android/platform/build-arm64-v8a/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
-            ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug )
+            ANDROID_NDK="" ANDROID_NDK_HOME="" ANDROID_NDK_ROOT="" buildozer --verbose android debug )
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

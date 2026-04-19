@@ -17,29 +17,32 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Python 3.12 Bridge Fix)
+      - name: Install Build Essentials (Legacy Engine Compatibility)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 1. 가상환경 초기화 및 시스템 패키지 격리
+          # 1. 가상환경 완전 초기화 및 버전 수동 조절
           rm -rf $HOME/build_env
           python3 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           
-          # 2. Python 3.12 호환성 패치 (최신 setuptools 강제)
-          pip install --upgrade pip
-          pip install "setuptools>=69.0.0" wheel Cython==0.29.33
+          # 2. Python 3.12의 결함을 메우기 위한 구버전 도구 세트 설치
+          # pip는 최신으로 유지하되, setuptools를 66버전으로 고정하는 것이 핵심입니다.
+          python -m pip install --upgrade pip
+          pip install "setuptools<67.0.0" "wheel" "Cython<3.0"
+          
+          # 3. Buildozer 및 p4a 설치
           pip install buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Final Path Block & Engine Start
+      - name: Hard-Block & Build Execution
         run: |
           source $HOME/build_env/bin/activate
           
-          # 3. NDK 경로 r26b로 철저 고정 (차단 상태 유지)
+          # 4. NDK 경로 r26b로 철저 고정 (차단 유지)
           NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b"
           export ANDROID_NDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
@@ -47,18 +50,17 @@ jobs:
           export ANDROID_NDK_LATEST_HOME=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # 4. Ubuntu 24 전용 라이브러리 심볼릭 링크
+          # 5. [중요] Python 3.12에서 사라진 라이브러리를 가상환경 것으로 강제 우회
+          export SETUPTOOLS_USE_DISTUTILS=local
+          
+          # 6. Ubuntu 24 라이브러리 호환성 링크
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 5. [중요] 빌드 엔진 내부의 distutils 경고 무시 및 강제 연결
-          export SETUPTOOLS_USE_DISTUTILS=local
-          
-          # 6. 오염된 플랫폼 캐시 제거
+          # 7. 이전의 실패 잔재 제거
           rm -rf .buildozer/android/platform/build-arm64-v8a
-          rm -rf .buildozer/android/platform/python-for-android
           
-          # 7. 빌드 실행
+          # 8. 빌드 강제 집행
           buildozer --verbose android debug
 
       - name: Upload APK

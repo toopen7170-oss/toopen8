@@ -17,28 +17,32 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Python 3.12 Absolute Fix)
+      - name: Install Build Essentials (Python 3.12 Emergency Patch)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 1. 가상환경 생성 (시스템 패키지 허용으로 distutils 우회)
-          python3 -m venv --system-site-packages $HOME/build_env
+          # 1. 가상환경 초기화 (깨끗한 상태에서 시작)
+          rm -rf $HOME/build_env
+          python3 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           
-          # 2. Python 3.12에서 삭제된 distutils를 복구하기 위한 핵심 도구 설치
-          pip install --upgrade pip
-          pip install "setuptools<60.0.0" # 구형 distutils 호환성을 유지하는 버전
-          pip install Cython==0.29.33 buildozer
+          # 2. Python 3.12 호환성을 위한 최신 도구 강제 설치
+          # ImpImporter 에러를 피하기 위해 최신 setuptools와 필수 라이브러리 선설치
+          pip install --upgrade pip setuptools wheel
+          pip install Cython==0.29.33
+          
+          # 3. Buildozer 및 p4a 설치 (Python 3.12 대응 버전)
+          pip install buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Absolute Environment Purge & Build
+      - name: Final Path Block & Build
         run: |
           source $HOME/build_env/bin/activate
           
-          # 3. 모든 NDK 경로를 r26b로 철저히 고정 (차단 유지)
+          # 4. NDK 경로 r26b로 철저 고정 (차단 상태 유지)
           NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b"
           export ANDROID_NDK=$NDK_PATH
           export ANDROID_NDK_HOME=$NDK_PATH
@@ -46,15 +50,16 @@ jobs:
           export ANDROID_NDK_LATEST_HOME=$NDK_PATH
           export P4A_ndk_directory=$NDK_PATH
           
-          # 4. Ubuntu 24 전용 라이브러리 심볼릭 링크
+          # 5. Ubuntu 24 라이브러리 링크 재구축
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 5. 오염된 플랫폼 캐시 제거
+          # 6. 이전의 오염된 빌드 기록 완전 삭제
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 6. 빌드 실행
-          buildozer --verbose android debug
+          # 7. 빌드 실행 (Python 호환성 모드로 실행)
+          # 환경변수를 통해 구형 라이브러리 참조를 강제로 차단합니다.
+          PYTHONPATH=. buildozer --verbose android debug
 
       - name: Upload APK
         uses: actions/upload-artifact@v4

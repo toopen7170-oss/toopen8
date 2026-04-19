@@ -17,47 +17,45 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Ultimate Isolation)
+      - name: Install Build Essentials (Ultimate Purge)
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 격리된 가상환경 생성
           python3 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip
           pip install Cython==0.29.33 buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Physical Path Block & Build
+      - name: Total Path Erasure & Build
         run: |
           source $HOME/build_env/bin/activate
           
-          # 1. [강력 차단] 서버가 주입하는 NDK 경로를 물리적으로 무력화
-          # 서버의 NDK 폴더가 존재한다면 우리 NDK(r26b)로 강제 연결하여 서버 변수를 속입니다.
-          NDK_VERSION_V27="/usr/local/lib/android/sdk/ndk/27.3.13750724"
-          NDK_TARGET="/home/runner/.buildozer/android/platform/android-ndk-r26b"
-          sudo rm -rf $NDK_VERSION_V27 || true
-          sudo mkdir -p $(dirname $NDK_VERSION_V27)
-          sudo ln -sf $NDK_TARGET $NDK_VERSION_V27
+          # 1. 서버의 모든 NDK/SDK 흔적 물리적 삭제 (차단 끝판왕)
+          sudo rm -rf /usr/local/lib/android/sdk/ndk/* || true
           
-          # 2. 모든 NDK 관련 변수를 우리 경로로 고정
-          export ANDROID_NDK=$NDK_TARGET
-          export ANDROID_NDK_HOME=$NDK_TARGET
-          export ANDROID_NDK_ROOT=$NDK_TARGET
-          export P4A_ndk_directory=$NDK_TARGET
+          # 2. r26b 경로 확정 및 권한 부여
+          NDK_PATH="/home/runner/.buildozer/android/platform/android-ndk-r26b"
+          sudo chmod -R 777 $NDK_PATH || true
           
-          # 3. 시스템 라이브러리 링크 (Ubuntu 24 대응)
+          # 3. [핵심] 모든 유령 변수를 r26b로 강제 단일화 (덮어쓰기)
+          export ANDROID_NDK=$NDK_PATH
+          export ANDROID_NDK_HOME=$NDK_PATH
+          export ANDROID_NDK_ROOT=$NDK_PATH
+          export ANDROID_NDK_LATEST_HOME=$NDK_PATH
+          export P4A_ndk_directory=$NDK_PATH
+          
+          # 4. Ubuntu 24 전용 라이브러리 링크
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 4. 권한 완전 개방 (차단 방지)
-          sudo chmod -R 777 $NDK_TARGET || true
+          # 5. 오염된 플랫폼 캐시 제거
           rm -rf .buildozer/android/platform/build-arm64-v8a
           
-          # 5. 빌드 실행 (서버 변수 개입 원천 차단)
+          # 6. 빌드 강제 집행
           buildozer --verbose android debug
 
       - name: Upload APK

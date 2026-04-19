@@ -17,44 +17,44 @@ jobs:
           java-version: '17'
           distribution: 'temurin'
 
-      - name: Install Build Essentials (Noble Absolute Fix)
+      - name: Install Build Essentials (Noble Final Fix)
         run: |
           sudo apt-get update
-          # Ubuntu 24 필수 라이브러리 및 격리 환경 도구 설치
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 python3-setuptools python3-pip python3-dev python3-venv
           
-          # 시스템 환경과 분리된 빌드 전용 가상환경 생성
+          # 가상환경 구축으로 시스템 Python 간섭 차단
           python3 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip
           pip install Cython==0.29.33 buildozer
           pip install git+https://github.com/kivy/python-for-android.git
 
-      - name: Force NDK Overwrite & Build
+      - name: Absolute Environment Purge & Build
         run: |
-          # 가상환경 활성화
           source $HOME/build_env/bin/activate
           
-          # 1. NDK 하위 호환성 심볼릭 링크 패치
+          # 1. 시스템 라이브러리 강제 매핑 (NDK 속이기)
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libncursesw.so.6 /usr/lib/x86_64-linux-gnu/libncurses.so.5
           sudo ln -sf /usr/lib/x86_64-linux-gnu/libtinfo.so.6 /usr/lib/x86_64-linux-gnu/libtinfo.so.5
           
-          # 2. 오염된 빌드 잔재 소거
-          rm -rf .buildozer/android/platform/build-arm64-v8a
+          # 2. 서버가 주입하는 모든 변수를 독점적으로 덮어쓰기 (export 방식)
+          export ANDROID_NDK=""
+          export ANDROID_NDK_HOME="/home/runner/.buildozer/android/platform/android-ndk-r26b"
+          export ANDROID_NDK_ROOT=""
+          export ANDROID_HOME=""
+          export ANDROID_SDK_ROOT=""
+          export P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b"
           
-          # 3. [최후의 수단] 시스템 변수 v27을 명령줄에서 직접 압살
-          # ANDROID_NDK="" 설정을 통해 서버가 주입한 경로를 무효화하고 r26b로 고정합니다.
-          ANDROID_NDK="" \
-          ANDROID_NDK_HOME="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
-          P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
+          # 3. 정밀 정화 (오염된 플랫폼 데이터 삭제)
+          rm -rf .buildozer/android/platform/build-arm64-v8a
+          rm -rf .buildozer/android/platform/python-for-android
+          
+          # 4. 빌드 실행 (환경변수 완전 격리 상태)
           buildozer --verbose android debug || ( \
-            echo "--- Emergency Reset: Retrying with Clean Headers ---" && \
+            echo "--- Critical Reset: Forcing Pure Build ---" && \
             find .buildozer/android/platform/ -type d \( -name "Xcode" -o -name "macOS" -o -name "iOS" \) -exec rm -rf {} + && \
-            ANDROID_NDK="" \
-            ANDROID_NDK_HOME="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
-            P4A_ndk_directory="/home/runner/.buildozer/android/platform/android-ndk-r26b" \
             buildozer --verbose android debug )
 
       - name: Upload APK

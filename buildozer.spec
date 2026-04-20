@@ -5,13 +5,14 @@ package.domain = org.toopen8
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 source.include_patterns = *
+# [점주님 지시] 아이콘 파일 설정 추가
+icon.filename = icon.png
 version = 0.1
 requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 
 orientation = portrait
 android.archs = arm64-v8a
 android.allow_backup = True
-# 안드로이드 14(API 34) 대응 권한 고정
 android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 android.api = 34
 android.minapi = 21

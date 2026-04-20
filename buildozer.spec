@@ -8,14 +8,14 @@ source.include_patterns = *
 icon.filename = icon.png
 
 version = 0.1
-# android 라이브러리 필수 포함
+# android 라이브러리를 추가하여 권한 요청 안정화
 requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 
 orientation = portrait
 android.archs = arm64-v8a
 android.allow_backup = True
 
-# API 34 대응 필수 권한
+# 미디어 및 외부 저장소 권한 정밀 세팅
 android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 
 android.api = 34

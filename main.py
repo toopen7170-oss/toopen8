@@ -1,4 +1,5 @@
 import os
+import sys
 from kivymd.app import MDApp
 from kivy.uix.screenmanager import ScreenManager, Screen
 from kivy.uix.boxlayout import BoxLayout
@@ -11,34 +12,37 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.scrollview import MDScrollView
 from kivy.core.text import LabelBase
 
-# [안전장치] 폰트 등록 (font.ttf 파일이 없어도 앱 실행 유지)
-font_path = "font.ttf"
-if os.path.exists(font_path):
+# [전수검사 반영] 안드로이드 앱 내부 경로 추적
+BASE_PATH = os.path.dirname(os.path.abspath(__file__))
+
+def get_path(filename):
+    return os.path.join(BASE_PATH, filename)
+
+# [안전장치] 폰트 등록
+font_file = get_path("font.ttf")
+HAS_FONT = False
+if os.path.exists(font_file):
     try:
-        LabelBase.register(name="CustomFont", fn_regular=font_path)
+        LabelBase.register(name="CustomFont", fn_regular=font_file)
         HAS_FONT = True
-    except:
-        HAS_FONT = False
-else:
-    HAS_FONT = False
+    except: pass
 
-# [공통 기능] 배경 이미지(bg.png) 적용 함수
 def add_bg(screen, opacity_val=0.4):
-    if os.path.exists("bg.png"):
-        screen.add_widget(Image(source='bg.png', allow_stretch=True, keep_ratio=False, opacity=opacity_val))
+    bg_file = get_path("bg.png")
+    if os.path.exists(bg_file):
+        screen.add_widget(Image(source=bg_file, allow_stretch=True, keep_ratio=False, opacity=opacity_val))
 
-# 1. 메인 메뉴 화면 (제1 원칙: 목록 구조 절대 보존)
+# --- 제1 기본원칙: 목록과 창 구조 보존 ---
+
 class MainMenu(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
-        add_bg(self, 1.0) # 메인 배경은 선명하게
-        
+        add_bg(self, 1.0)
         layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
         title = MDLabel(text="Priston Tale Manager", halign="center", font_style="H5")
         if HAS_FONT: title.font_name = "CustomFont"
         layout.add_widget(title)
         
-        # 목록은 절대로 수정하지 않음
         menus = [("계정생성창", "account_screen"), ("케릭선택창", "char_select_screen"),
                  ("케릭정보창", "char_info_screen"), ("케릭장비창", "equip_screen"),
                  ("인벤토리창", "inven_screen"), ("사진선택창", "photo_screen")]
@@ -49,23 +53,18 @@ class MainMenu(Screen):
             if HAS_FONT: btn.font_name = "CustomFont"
             layout.add_widget(btn)
         self.add_widget(layout)
+    def change_screen(self, screen_name): self.manager.current = screen_name
 
-    def change_screen(self, screen_name):
-        self.manager.current = screen_name
-
-# 2. 계정생성창 (ID선택, 검색바)
 class AccountScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         add_bg(self)
         layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
         layout.add_widget(MDTextField(hint_text="계정전체검색바", mode="rectangle"))
-        layout.add_widget(MDTextField(hint_text="계정ID선택창", mode="helper"))
         layout.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=self.back))
         self.add_widget(layout)
     def back(self, *args): self.manager.current = 'main'
 
-# 3. 케릭선택창 (6개 선택 영역)
 class CharSelectScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -77,7 +76,6 @@ class CharSelectScreen(Screen):
         self.add_widget(layout)
     def back(self, *args): self.manager.current = 'main'
 
-# 4. 케릭정보창 (요청하신 상세 그룹 레이아웃)
 class CharInfoScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -85,12 +83,10 @@ class CharInfoScreen(Screen):
         scroll = MDScrollView()
         layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10), size_hint_y=None)
         layout.bind(minimum_height=layout.setter('height'))
-        
         groups = [[('이름', ''), ('직위', ''), ('클랜', ''), ('레벨', '')],
                   [('생명력', ''), ('기력', ''), ('근력', '')],
                   [('힘', ''), ('정신력', ''), ('재능', ''), ('민첩', ''), ('건강', '')],
                   [('명중', ''), ('공격', ''), ('방어', ''), ('흡수', ''), ('속도', '')]]
-        
         for group in groups:
             grid = GridLayout(cols=2, size_hint_y=None, height=dp(len(group)*45), spacing=dp(5))
             for label, value in group:
@@ -99,14 +95,12 @@ class CharInfoScreen(Screen):
                 grid.add_widget(lbl)
                 grid.add_widget(MDTextField(text=value, size_hint_y=None, height=dp(30)))
             layout.add_widget(grid)
-            layout.add_widget(BoxLayout(size_hint_y=None, height=dp(20))) # 투명 여백
-            
+            layout.add_widget(BoxLayout(size_hint_y=None, height=dp(20)))
         layout.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=self.back))
         scroll.add_widget(layout)
         self.add_widget(scroll)
     def back(self, *args): self.manager.current = 'main'
 
-# 5. 케릭장비창 (한손무기~기타)
 class EquipScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
@@ -119,20 +113,19 @@ class EquipScreen(Screen):
             lbl = MDLabel(text=item)
             if HAS_FONT: lbl.font_name = "CustomFont"
             layout.add_widget(lbl)
-            layout.add_widget(MDTextField(hint_text="정보 입력"))
+            layout.add_widget(MDTextField(hint_text="정보"))
         layout.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=self.back))
         scroll.add_widget(layout)
         self.add_widget(scroll)
     def back(self, *args): self.manager.current = 'main'
 
-# 6. 인벤토리창 (저장/삭제 및 수정)
 class InvenScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         add_bg(self)
         layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
         row = BoxLayout(size_hint_y=None, height=dp(60), spacing=dp(5))
-        row.add_widget(MDTextField(text="아이템 정보 수정", mode="line"))
+        row.add_widget(MDTextField(text="아이템 정보", mode="line"))
         row.add_widget(MDRaisedButton(text="저장"))
         row.add_widget(MDRaisedButton(text="삭제"))
         layout.add_widget(row)
@@ -140,20 +133,18 @@ class InvenScreen(Screen):
         self.add_widget(layout)
     def back(self, *args): self.manager.current = 'main'
 
-# 7. 사진선택창 (다중선택/업다운로드/저장삭제)
 class PhotoScreen(Screen):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         add_bg(self)
         layout = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
-        layout.add_widget(MDLabel(text="사진 관리 (Priston Tale)", halign="center"))
-        for t in ["사진 선택(여러장)", "업로드", "다운로드", "저장", "삭제"]:
+        layout.add_widget(MDLabel(text="사진 관리", halign="center"))
+        for t in ["사진 선택", "업로드", "다운로드", "저장", "삭제"]:
             layout.add_widget(MDRaisedButton(text=t, size_hint=(1, None)))
         layout.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=self.back))
         self.add_widget(layout)
     def back(self, *args): self.manager.current = 'main'
 
-# [앱 실행부] 이름: PristonTaleApp
 class PristonTaleApp(MDApp):
     def build(self):
         self.theme_cls.primary_palette = "BlueGray"

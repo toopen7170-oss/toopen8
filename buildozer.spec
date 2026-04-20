@@ -5,16 +5,17 @@ package.domain = org.toopen8
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 source.include_patterns = *
-# [점주님 지시] 아이콘 설정 필수 포함
 icon.filename = icon.png
 
-version = 0.1
+version = 1.0
 requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 
 orientation = portrait
 android.archs = arm64-v8a
 android.allow_backup = True
-android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+# 안드로이드 14(API 34) 필수 권한 및 미디어 접근 권한
+android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE
+
 android.api = 34
 android.minapi = 21
 android.ndk = 25b

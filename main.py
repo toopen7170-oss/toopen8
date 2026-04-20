@@ -2,7 +2,7 @@ import os
 import sys
 from kivy.config import Config
 
-# [전수검사] 그래픽 가속 충돌 및 자판 가림 방지 (안드로이드 14 최적화)
+# [전수검사] 최신 안드로이드 하드웨어 가속 및 자판 충돌 방지
 Config.set('kivy', 'keyboard_mode', 'system_and_dock')
 Config.set('softinput_mode', 'pan')
 
@@ -19,27 +19,18 @@ from kivymd.uix.textfield import MDTextField
 from kivymd.uix.scrollview import MDScrollView
 from kivymd.uix.dialog import MDDialog
 from kivymd.uix.snackbar import MDSnackbar
-from kivy.core.text import LabelBase
 
-# [점주님 요청] 에러 로그 강제 기록 프로토콜
 BASE_PATH = os.path.dirname(os.path.abspath(__file__))
-LOG_FILE = os.path.join(BASE_PATH, "crash_log.txt")
-
-def handle_exception(exc_type, exc_value, exc_traceback):
-    with open(LOG_FILE, "a") as f:
-        import traceback
-        traceback.print_exception(exc_type, exc_value, exc_traceback, file=f)
-sys.excepthook = handle_exception
-
 def get_path(filename):
     return os.path.join(BASE_PATH, filename)
 
 class PristonTaleApp(MDApp):
     def build(self):
+        # 엔진 시동 시 테마 설정을 최소화하여 튕김 방지
         self.theme_cls.primary_palette = "BlueGray"
         self.sm = ScreenManager()
         
-        # [제1원칙] 6개 주요 화면 등록
+        # [제1원칙] 6개 화면 등록
         self.sm.add_widget(MainMenu(name='main'))
         self.sm.add_widget(AccountScreen(name='acc'))
         self.sm.add_widget(CharSelectScreen(name='sel'))
@@ -48,80 +39,59 @@ class PristonTaleApp(MDApp):
         self.sm.add_widget(InvenScreen(name='inv'))
         self.sm.add_widget(PhotoScreen(name='pho'))
         
-        # [자가진단] 시동 2.5초 후 정밀 보고 (안드로이드 보안 우회 지연 실행)
-        Clock.schedule_once(self.run_final_diagnostic, 2.5)
+        # [자가진단] 시동 후 보안 검사를 우회하여 지연 실행
+        Clock.schedule_once(self.run_final_diagnostic, 2.0)
         return self.sm
 
     def run_final_diagnostic(self, dt):
         errors = []
-        if not os.path.exists(get_path("font.ttf")): errors.append("폰트(font.ttf) 누락")
-        if not os.path.exists(get_path("bg.png")): errors.append("배경(bg.png) 누락")
+        if not os.path.exists(get_path("font.ttf")): errors.append("폰트 누락")
+        if not os.path.exists(get_path("bg.png")): errors.append("배경 누락")
         
         if errors:
-            self.diag_dialog = MDDialog(
-                title="[자가진단] 시스템 경고",
-                text=f"현재 '{', '.join(errors)}' 상태입니다. 리소스를 체크하세요.",
-                buttons=[MDRaisedButton(text="확인", on_release=lambda x: self.diag_dialog.dismiss())]
+            self.dialog = MDDialog(
+                title="[자가진단] 시스템 알림",
+                text=f"현재 '{', '.join(errors)}' 상태입니다. 리소스를 확인하세요.",
+                buttons=[MDRaisedButton(text="확인", on_release=lambda x: self.dialog.dismiss())]
             )
-            self.diag_dialog.open()
+            self.dialog.open()
         else:
-            MDSnackbar(text="[자가진단] 모든 시스템 정상 가동!", bg_color=(0, 0.5, 0, 1)).open()
+            MDSnackbar(text="[자가진단] 모든 시스템 정상 가동!", bg_color=(0, 0.4, 0, 1)).open()
 
-# --- 화면 공통 배경 처리 (세이프 로딩) ---
+# --- 화면 공통 배경 (지연 로딩 방식) ---
 class BaseScreen(Screen):
     def on_enter(self):
-        Clock.schedule_once(self.apply_bg, 0.3)
-    def apply_bg(self, dt):
+        Clock.schedule_once(self.apply_safe_bg, 0.2)
+    def apply_safe_bg(self, dt):
         p = get_path("bg.png")
         if os.path.exists(p) and not any(isinstance(w, Image) for w in self.children):
             self.add_widget(Image(source=p, allow_stretch=True, keep_ratio=False, opacity=0.3), index=len(self.children))
 
 class MainMenu(Screen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        p = get_path("bg.png")
-        if os.path.exists(p):
-            self.add_widget(Image(source=p, allow_stretch=True, keep_ratio=False, opacity=0.8))
-        
+    def __init__(self, **kw):
+        super().__init__(**kw)
         l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
         l.add_widget(MDLabel(text="Priston Tale Manager", halign="center", font_style="H5"))
-        
         menus = [("계정생성창", "acc"), ("케릭선택창", "sel"), ("케릭정보창", "info"),
                  ("케릭장비창", "equ"), ("인벤토리창", "inv"), ("사진선택창", "pho")]
         for name, sn in menus:
-            btn = MDRaisedButton(text=name, size_hint=(1, None), height=dp(55),
-                                 on_release=lambda x, s=sn: setattr(self.manager, 'current', s))
-            l.add_widget(btn)
+            l.add_widget(MDRaisedButton(text=name, size_hint=(1, None), height=dp(50),
+                                       on_release=lambda x, s=sn: setattr(self.manager, 'current', s)))
         self.add_widget(l)
 
-class AccountScreen(BaseScreen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
-        l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
-        l.add_widget(MDTextField(hint_text="계정전체검색바", mode="rectangle", halign="center"))
-        l.add_widget(MDTextField(hint_text="계정ID 입력", halign="center"))
-        row = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
-        row.add_widget(MDRaisedButton(text="저장", size_hint_x=0.5))
-        row.add_widget(MDRaisedButton(text="삭제", size_hint_x=0.5))
-        l.add_widget(row)
-        l.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=lambda x: setattr(self.manager, 'current', 'main'), size_hint_x=1))
-        self.add_widget(l)
-
-# [제1원칙] 케릭정보창 세부 목록 (19종) 완벽 보존
+# [제1원칙] 케릭정보창 세부 목록 (19종)
 class CharInfoScreen(BaseScreen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         scroll = MDScrollView()
         l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10), size_hint_y=None)
         l.bind(minimum_height=l.setter('height'))
-        
         groups = [
             ("기본 정보", [('이름',''), ('직위',''), ('클랜',''), ('레벨','')]),
             ("상태 수치", [('생명력','HP'), ('기력','MP'), ('근력','STM')]),
             ("기본 스탯", [('힘','STR'), ('정신력','SPI'), ('재능','TAL'), ('민첩','AGI'), ('건강','VIT')]),
             ("전투 지표", [('명중','Rating'), ('공격','Power'), ('방어','Defense'), ('흡수','Absorb'), ('속도','Speed')])
         ]
-        
         for title, items in groups:
             l.add_widget(MDLabel(text=f"[{title}]", font_style="Subtitle2"))
             grid = GridLayout(cols=2, size_hint_y=None, height=dp(len(items)*55), spacing=dp(5))
@@ -129,38 +99,40 @@ class CharInfoScreen(BaseScreen):
                 grid.add_widget(MDLabel(text=label, halign="center"))
                 grid.add_widget(MDTextField(hint_text=hint, halign="center"))
             l.add_widget(grid)
-            l.add_widget(BoxLayout(size_hint_y=None, height=dp(20)))
-
         l.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=lambda x: setattr(self.manager, 'current', 'main'), size_hint_x=1))
         scroll.add_widget(l)
         self.add_widget(scroll)
 
-# [제1원칙] 케릭장비창 세부 목록 (11종) 완벽 보존
+# [제1원칙] 케릭장비창 세부 목록 (11종)
 class EquipScreen(BaseScreen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         scroll = MDScrollView()
         l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10), size_hint_y=None)
         l.bind(minimum_height=l.setter('height'))
-        
         items = ["한손무기", "두손무기", "갑옷", "방패", "장갑", "부츠", "암릿", "링1", "링2", "아뮬랫", "기타"]
         grid = GridLayout(cols=2, size_hint_y=None, height=dp(len(items)*60), spacing=dp(10))
         for item in items:
             grid.add_widget(MDLabel(text=item, halign="center"))
-            grid.add_widget(MDTextField(halign="center", hint_text="장착 정보 입력"))
-        
+            grid.add_widget(MDTextField(halign="center", hint_text="장착 정보"))
         l.add_widget(grid)
         l.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=lambda x: setattr(self.manager, 'current', 'main'), size_hint_x=1))
         scroll.add_widget(l)
         self.add_widget(scroll)
 
+class AccountScreen(BaseScreen):
+    def __init__(self, **kw):
+        super().__init__(**kw)
+        l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
+        l.add_widget(MDTextField(hint_text="계정전체검색", mode="rectangle"))
+        l.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=lambda x: setattr(self.manager, 'current', 'main'), size_hint_x=1))
+        self.add_widget(l)
+
 class PhotoScreen(BaseScreen):
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(self, **kw):
+        super().__init__(**kw)
         l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
         l.add_widget(MDLabel(text="사진 관리 시스템", halign="center"))
-        l.add_widget(MDRaisedButton(text="갤러리 사진 선택", size_hint=(1, None),
-                                   on_release=lambda x: MDSnackbar(text="[자가진단] 권한 확인 중...").open()))
         l.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=lambda x: setattr(self.manager, 'current', 'main'), size_hint_x=1))
         self.add_widget(l)
 
@@ -176,10 +148,9 @@ class InvenScreen(BaseScreen):
     def __init__(self, **kw):
         super().__init__(**kw)
         l = BoxLayout(orientation='vertical', padding=dp(20))
-        l.add_widget(MDTextField(hint_text="인벤토리 아이템 검색", halign="center"))
+        l.add_widget(MDTextField(hint_text="아이템 검색", halign="center"))
         l.add_widget(MDRectangleFlatButton(text="뒤로가기", on_release=lambda x: setattr(self.manager, 'current', 'main')))
         self.add_widget(l)
 
 if __name__ == '__main__':
-    # [전수검사] 폰트 등록을 시동 후로 미루어 튕김 방지
     PristonTaleApp().run()

@@ -1,4 +1,4 @@
-name: PT1 Manager Clean Build 2.0
+name: PT1 Manager Clean Build 2.1
 
 on:
   push:
@@ -12,58 +12,61 @@ jobs:
       - name: 1. 저장소 체크아웃
         uses: actions/checkout@v4
 
-      - name: 2. 시스템 환경 초기화 및 필수 도구 설치
+      - name: 2. 시스템 초기화 및 안정 버전 설치
         run: |
           sudo apt-get update
           sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zlib1g-dev \
           libsdl2-dev libsdl2-image-dev libsdl2-ttf-dev unzip zip cmake lld pkg-config \
           libncursesw6 libtinfo6 libstdc++6 libtool autoconf autoconf-archive binutils
           
-          # 기존에 꼬였을지 모르는 모든 환경 삭제 후 파이썬 가상환경 재생성
+          # 가상환경 재구축 (Python 3.11 강제 권장)
           rm -rf $HOME/build_env
-          python -m venv $HOME/build_env
+          python3.11 -m venv $HOME/build_env
           source $HOME/build_env/bin/activate
           pip install --upgrade pip setuptools wheel
-          # 가장 안정적인 buildozer 및 관련 라이브러리 조합 설치
-          pip install "sh>=2.0,<3.0" "Cython<3.0" buildozer
+          pip install "sh>=2.0,<3.0" "Cython<3.0" buildozer python-for-android
 
-      - name: 3. NDK r25b 정석 설치 (p4a 권장 버전)
+      - name: 3. NDK r25b 정석 배치 (오타 방지)
         run: |
-          # 엔진이 오타(rr26b)를 내지 않도록 가장 안정적인 r25b를 표준 경로에 설치합니다.
+          # 엔진이 찾으러 올 경로를 미리 생성합니다.
           mkdir -p $HOME/.buildozer/android/platform
           cd $HOME/.buildozer/android/platform
+          
+          # NDK 다운로드 및 압축 해제
           curl -L https://dl.google.com/android/repository/android-ndk-r25b-linux.zip -o ndk.zip
           unzip -q ndk.zip
+          # 엔진이 'android-ndk'라는 이름으로 바로 인식하도록 폴더명 정리
           mv android-ndk-r25b android-ndk
           rm ndk.zip
 
-      - name: 4. SDK 라이선스 및 환경 변수 고정
+      - name: 4. 엔진 경로 유효성 확보 (FileNotFoundError 방지)
         run: |
-          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
+          # 직전 실패 원인 타격: p4a 폴더가 없어서 발생하는 에러를 방지합니다.
+          PLATFORM_DIR="$GITHUB_WORKSPACE/.buildozer/android/platform"
+          mkdir -p "$PLATFORM_DIR/python-for-android"
           
-          # 빌드 전 spec 파일을 깨끗하게 정돈 (NDK 경로를 우리가 설치한 곳으로 지정)
-          NDK_PATH="$HOME/.buildozer/android/platform/android-ndk"
-          if [ -f buildozer.spec ]; then
-            sed -i "s|^#\? \?android.ndk_path =.*|android.ndk_path = $NDK_PATH|" buildozer.spec
-            sed -i 's|^#\? \?android.ndk =.*|android.ndk = 25b|' buildozer.spec
-            sed -i 's|^#\? \?android.ndk_api =.*|android.ndk_api = 21|' buildozer.spec
-          fi
+          # SDK 라이선스 승인
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager --licenses || true
 
-      - name: 5. 정석 빌드 실행 (Clean Build)
+      - name: 5. 정석 빌드 집행 (Clean & Build)
         run: |
           source $HOME/build_env/bin/activate
           
-          # 환경 변수를 통해 엔진이 딴길로 새지 않게 가이드라인 제공
+          # NDK 및 환경 변수 최종 고정
           export ANDROID_NDK_HOME="$HOME/.buildozer/android/platform/android-ndk"
-          export ANT_HOME="/usr/share/ant"
           export SETUPTOOLS_USE_DISTUTILS=local
           
-          # 이전 빌드 잔해 삭제 후 빌드 강행
-          buildozer android clean
+          # spec 파일 강제 업데이트
+          if [ -f buildozer.spec ]; then
+            sed -i "s|^#\? \?android.ndk_path =.*|android.ndk_path = $ANDROID_NDK_HOME|" buildozer.spec
+            sed -i 's|^#\? \?android.ndk =.*|android.ndk = 25b|' buildozer.spec
+          fi
+
+          # 빌드 실행
           buildozer --verbose android debug
 
-      - name: 6. 성공한 APK 업로드
+      - name: 6. 최종 APK 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: PT1-Manager-Clean-Success
+          name: PT1-Manager-Verified-Success
           path: bin/*.apk

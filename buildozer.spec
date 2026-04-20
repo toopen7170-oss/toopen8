@@ -1,6 +1,6 @@
 [app]
-title = Priston Tale
-package.name = pristontale
+title = PT1 Manager
+package.name = pt1manager
 package.domain = org.toopen8
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
@@ -13,7 +13,7 @@ requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 orientation = portrait
 android.archs = arm64-v8a
 android.allow_backup = True
-# 안드로이드 14 API 34 대응 권한
+# 미디어 접근 권한 강화 (API 34 최적화)
 android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 
 android.api = 34

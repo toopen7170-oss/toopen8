@@ -3,22 +3,23 @@ title = Priston Tale
 package.name = pristontale
 package.domain = org.toopen8
 source.dir = .
-# 리소스 확장자 전수 포함
 source.include_exts = py,png,jpg,kv,atlas,ttf
-source.include_patterns = assets/*,images/*
+# 리소스가 같은 폴더에 있으므로 패턴을 단순화하여 유실 방지
+source.include_patterns = *
 
-# [핵심] 아이콘 이미지 설정 (보내주신 사진의 icon.png 반영)
 icon.filename = icon.png
 
 version = 0.1
-requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius
+# android 라이브러리 추가하여 권한 및 시스템 제어 안정화
+requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 
 orientation = portrait
 android.archs = arm64-v8a
 android.allow_backup = True
-android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE,INTERNET,CAMERA
 
-# 필승 버전 고정
+# 최신 안드로이드 보안 가이드에 맞춘 권한 수정
+android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_MEDIA_VIDEO, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
+
 android.api = 34
 android.minapi = 21
 android.ndk = 25b

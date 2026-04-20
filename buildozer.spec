@@ -5,8 +5,9 @@ package.domain = org.toopen8
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 source.include_patterns = *
-# [점주님 지시] 아이콘 파일 설정 추가
+# [점주님 지시] 아이콘 설정 필수 포함
 icon.filename = icon.png
+
 version = 0.1
 requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 

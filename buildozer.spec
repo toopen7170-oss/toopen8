@@ -13,6 +13,7 @@ requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
 orientation = portrait
 android.archs = arm64-v8a
 android.allow_backup = True
+# API 34 대응 필수 권한 (사진 및 파일 접근)
 android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE
 
 android.api = 34

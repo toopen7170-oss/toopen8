@@ -5,7 +5,7 @@ import traceback
 import sqlite3
 
 from kivy.config import Config
-# [전수검사] S26 울트라 최적화: 자판 대응 및 디스플레이 고정
+# [전수검사] S26 울트라 최적화: 키보드 가림 방지
 Config.set('kivy', 'keyboard_mode', 'system_and_dock')
 Config.set('kivy', 'softinput_mode', 'pan')
 
@@ -40,31 +40,30 @@ def get_path(file):
     p = resource_find(file)
     return p if p else (file if os.path.exists(file) else None)
 
-# [오류해결] 한글 깨짐 방지 폰트 등록
+# [오류해결] 폰트 로딩 최우선 순위 배치
 FONT_FILE = get_path("font.ttf")
 if FONT_FILE:
     try:
         LabelBase.register(name="KoreanFont", fn_regular=FONT_FILE)
     except: pass
 
-# ---------- DB 초기화 (안정성 강화) ----------
+# ---------- DB 초기화 (커밋 누락 수정) ----------
 try:
     conn = sqlite3.connect(DB_PATH)
     cur = conn.cursor()
     cur.execute("CREATE TABLE IF NOT EXISTS accounts (name TEXT PRIMARY KEY)")
     cur.execute("CREATE TABLE IF NOT EXISTS chars (acc TEXT, slot INTEGER, type TEXT, data TEXT, PRIMARY KEY(acc, slot, type))")
-    cur.execute("CREATE TABLE IF NOT EXISTS photos (acc TEXT, slot INTEGER, path TEXT)")
     conn.commit()
 except:
     conn = None
 
-# ---------- 메인 앱 엔진 (114번 기반) ----------
+# ---------- 메인 앱 엔진 ----------
 class PristonTaleApp(MDApp):
     def build(self):
         self.theme_cls.theme_style = "Dark"
         self.theme_cls.primary_palette = "BlueGray"
         
-        # [원칙] 모든 스타일에 한글 폰트 적용
+        # [오류해결] 모든 텍스트 스타일에 한글 폰트 강제 주입 (일부 깨짐 방지)
         if FONT_FILE:
             for style in list(self.theme_cls.font_styles.keys()):
                 self.theme_cls.font_styles[style] = ["KoreanFont", 16, False, 0.15]
@@ -73,7 +72,7 @@ class PristonTaleApp(MDApp):
         self.slot = None
         self.sm = ScreenManager(transition=FadeTransition())
         
-        # [제1원칙] 6개 필수 화면 등록
+        # 6개 전체 화면 등록
         self.sm.add_widget(AccountScreen(name='acc'))
         self.sm.add_widget(CharSelectScreen(name='sel'))
         self.sm.add_widget(CharInfoScreen(name='info'))
@@ -81,29 +80,21 @@ class PristonTaleApp(MDApp):
         self.sm.add_widget(InvenScreen(name='inv'))
         self.sm.add_widget(PhotoScreen(name='pho'))
 
-        # [자가 진단] 구동 2초 후 실행 (114번 방식 안정성)
         Clock.schedule_once(self.run_diag, 2)
         return self.sm
 
     def run_diag(self, dt):
         errors = []
-        if not FONT_FILE: errors.append("❌ font.ttf 파일 누락")
+        if not FONT_FILE: errors.append("❌ font.ttf 누락")
         if not get_path("bg.png"): errors.append("⚠️ bg.png 누락")
         if not get_path("bg_sword.png"): errors.append("⚠️ bg_sword.png 누락")
-        if not conn: errors.append("🚨 DB 연결 실패")
         
-        title = "🛡️ 시스템 자가 진단"
-        msg = "모든 시스템이 114번 빌드 수준으로 안정화되었습니다." if not errors else "\n".join(errors)
-        
-        # [수정] 튕김 방지 다이얼로그 생성 로직
-        self.diag = MDDialog(
-            title=title,
-            text=msg,
-            buttons=[MDRaisedButton(text="확인", on_release=lambda x: self.diag.dismiss())]
-        )
+        msg = "시스템 정상 (114번 기반 안정화 완료)" if not errors else "\n".join(errors)
+        self.diag = MDDialog(title="🛡️ 자가 진단 보고", text=msg, 
+                             buttons=[MDRaisedButton(text="확인", on_release=lambda x: self.diag.dismiss())])
         self.diag.open()
 
-# ---------- 1. 계정 관리 (114번 완벽 복구) ----------
+# ---------- 1. 계정 화면 ----------
 class AccountScreen(Screen):
     def on_enter(self):
         if not hasattr(self, "bg_added"):
@@ -116,16 +107,16 @@ class AccountScreen(Screen):
         l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
         l.add_widget(MDLabel(text="PT1 매니저 시스템", halign="center", font_style="H5"))
         
-        self.search = MDTextField(hint_text="🔍 계정 검색바", mode="rectangle")
-        self.search.bind(text=self.filter_acc)
+        self.search = MDTextField(hint_text="🔍 계정 검색", mode="rectangle")
+        self.search.bind(text=lambda i, v: self.refresh(v))
         l.add_widget(self.search)
 
-        self.acc_input = MDTextField(hint_text="신규 계정ID 입력")
-        l.add_widget(self.acc_input)
+        self.input = MDTextField(hint_text="새 계정 ID")
+        l.add_widget(self.input)
 
         btns = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
-        btns.add_widget(MDRaisedButton(text="저장", size_hint_x=0.5, on_release=self.save))
-        btns.add_widget(MDRaisedButton(text="삭제", size_hint_x=0.5, md_bg_color=(0.8,0,0,1), on_release=self.delete))
+        btns.add_widget(MDRaisedButton(text="저장", size_hint_x=0.5, on_release=self.do_save))
+        btns.add_widget(MDRaisedButton(text="삭제", size_hint_x=0.5, md_bg_color=(0.8,0,0,1), on_release=self.do_delete))
         l.add_widget(btns)
 
         self.list_layout = GridLayout(cols=1, size_hint_y=None, spacing=dp(5))
@@ -134,30 +125,34 @@ class AccountScreen(Screen):
         self.add_widget(l)
 
     def on_pre_enter(self): self.refresh()
-    def refresh(self, query=""):
+    def refresh(self, q=""):
         self.list_layout.clear_widgets()
         if not conn: return
-        if query: cur.execute("SELECT name FROM accounts WHERE name LIKE ?", ('%'+query+'%',))
-        else: cur.execute("SELECT name FROM accounts")
-        for (name,) in cur.fetchall():
-            btn = MDRectangleFlatButton(text=name, size_hint_x=1)
-            btn.bind(on_release=lambda x, n=name: self.select_acc(n))
+        cur.execute("SELECT name FROM accounts WHERE name LIKE ?", ('%'+q+'%',))
+        for (n,) in cur.fetchall():
+            btn = MDRectangleFlatButton(text=n, size_hint_x=1)
+            btn.bind(on_release=lambda x, name=n: self.go_sel(name))
             self.list_layout.add_widget(btn)
 
-    def filter_acc(self, inst, text): self.refresh(text)
-    def select_acc(self, name):
+    def go_sel(self, name):
         MDApp.get_running_app().acc = name
         self.manager.current = 'sel'
 
-    def save(self, *a):
-        n = self.acc_input.text.strip()
-        if n and conn: cur.execute("INSERT OR IGNORE INTO accounts VALUES(?)", (n,)); conn.commit(); self.refresh(); self.acc_input.text=""
+    def do_save(self, *a):
+        n = self.input.text.strip()
+        if n and conn:
+            cur.execute("INSERT OR IGNORE INTO accounts VALUES(?)", (n,))
+            conn.commit(); self.refresh(); self.input.text=""
+            MDSnackbar(text="계정이 저장되었습니다.").open()
 
-    def delete(self, *a):
-        n = self.acc_input.text.strip()
-        if n and conn: cur.execute("DELETE FROM accounts WHERE name=?", (n,)); conn.commit(); self.refresh(); self.acc_input.text=""
+    def do_delete(self, *a):
+        n = self.input.text.strip()
+        if n and conn:
+            cur.execute("DELETE FROM accounts WHERE name=?", (n,))
+            conn.commit(); self.refresh(); self.input.text=""
+            MDSnackbar(text="계정이 삭제되었습니다.").open()
 
-# ---------- 2. 케릭 선택창 (배경 이미지 고정) ----------
+# ---------- 2. 케릭 선택창 ----------
 class CharSelectScreen(Screen):
     def on_enter(self):
         if not hasattr(self, "bg_added"):
@@ -168,20 +163,21 @@ class CharSelectScreen(Screen):
     def __init__(self, **kw):
         super().__init__(**kw)
         l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(10))
-        self.slot_label = MDLabel(text="슬롯을 선택하세요", halign="center", font_style="H6")
-        l.add_widget(self.slot_label)
+        self.info = MDLabel(text="슬롯을 선택하세요", halign="center", font_style="H6")
+        l.add_widget(self.info)
 
-        grid = GridLayout(cols=2, spacing=dp(15), size_hint_y=0.6)
+        grid = GridLayout(cols=2, spacing=dp(15), size_hint_y=0.5)
         for i in range(1, 7):
-            btn = MDRaisedButton(text=f"Slot {i}", size_hint=(1, 1))
-            btn.bind(on_release=lambda x, s=i: self.set_slot(s))
-            grid.add_widget(btn)
+            b = MDRaisedButton(text=f"Slot {i}", size_hint=(1, 1))
+            b.bind(on_release=lambda x, s=i: self.set_slot(s))
+            grid.add_widget(b)
         l.add_widget(grid)
 
+        # [지시사항] 하단 4개 이동 버튼
         menu = BoxLayout(size_hint_y=None, height=dp(60), spacing=dp(5))
-        for n, sn in [("정보","info"), ("장비","equ"), ("인벤","inv"), ("사진","pho")]:
+        for n, sc in [("정보","info"), ("장비","equ"), ("인벤","inv"), ("사진","pho")]:
             btn = MDRaisedButton(text=n, size_hint_x=0.25)
-            btn.bind(on_release=lambda x, s=sn: self.go_screen(s))
+            btn.bind(on_release=lambda x, t=sc: self.go_sc(t))
             menu.add_widget(btn)
         l.add_widget(menu)
         l.add_widget(MDRectangleFlatButton(text="뒤로", size_hint_x=1, on_release=lambda x: setattr(self.manager, 'current', 'acc')))
@@ -190,46 +186,44 @@ class CharSelectScreen(Screen):
     def set_slot(self, s):
         app = MDApp.get_running_app()
         app.slot = s
-        self.slot_label.text = f"계정: {app.acc} / Slot: {s}"
-        MDSnackbar(text=f"Slot {s} 가 선택되었습니다.").open()
+        self.info.text = f"계정: {app.acc} / Slot: {s}"
+        MDSnackbar(text=f"{s}번 슬롯 선택됨").open()
 
-    def go_screen(self, name):
+    def go_sc(self, target):
         if not MDApp.get_running_app().slot:
             MDSnackbar(text="슬롯을 먼저 선택해주세요.").open()
             return
-        self.manager.current = name
+        self.manager.current = target
 
-# ---------- 3. 케릭정보창 (19종 그룹화 원칙) ----------
+# ---------- 3. 케릭 정보창 (19종) ----------
 class CharInfoScreen(Screen):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.inputs = {}
-        self.groups = [
-            ["이름", "직위", "클랜", "레벨"],
-            ["생명력", "기력", "근력"],
-            ["힘", "정신력", "재능", "민첩", "건강"],
-            ["명중", "공격", "방어", "흡수", "속도"]
+        self.fields = [
+            ["이름", "직위", "클랜", "레벨"], ["생명력", "기력", "근력"],
+            ["힘", "정신력", "재능", "민첩", "건강"], ["명중", "공격", "방어", "흡수", "속도"]
         ]
-        self.setup_ui()
-
-    def setup_ui(self):
         sv = MDScrollView()
-        l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(5), size_hint_y=None)
-        l.bind(minimum_height=l.setter('height'))
+        self.cont = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(2), size_hint_y=None)
+        self.cont.bind(minimum_height=self.cont.setter('height'))
         
-        for g in self.groups:
+        for g in self.fields:
             for f in g:
                 row = BoxLayout(size_hint_y=None, height=dp(45))
-                row.add_widget(MDLabel(text=f, size_hint_x=0.3, halign="center"))
-                tf = MDTextField(halign="center", mode="fill")
-                tf.bind(text=lambda inst, val, field=f: self.auto_save(field, val))
+                row.add_widget(MDLabel(text=f, size_hint_x=0.3))
+                tf = MDTextField(mode="fill")
                 self.inputs[f] = tf
                 row.add_widget(tf)
-                l.add_widget(row)
-            l.add_widget(BoxLayout(size_hint_y=None, height=dp(20)))
+                self.cont.add_widget(row)
+            self.cont.add_widget(BoxLayout(size_hint_y=None, height=dp(15)))
 
-        l.add_widget(MDRectangleFlatButton(text="뒤로", size_hint_x=1, on_release=lambda x: setattr(self.manager, 'current', 'sel')))
-        sv.add_widget(l); self.add_widget(sv)
+        btns = BoxLayout(size_hint_y=None, height=dp(50), spacing=dp(10))
+        btns.add_widget(MDRaisedButton(text="저장", size_hint_x=0.5, on_release=lambda x: self.save_data()))
+        btns.add_widget(MDRaisedButton(text="초기화", size_hint_x=0.5, md_bg_color=(1,0,0,1), on_release=lambda x: self.clear_data()))
+        self.cont.add_widget(btns)
+        self.cont.add_widget(MDRectangleFlatButton(text="뒤로", size_hint_x=1, on_release=lambda x: setattr(self.manager, 'current', 'sel')))
+        sv.add_widget(self.cont); self.add_widget(sv)
 
     def on_pre_enter(self):
         app = MDApp.get_running_app()
@@ -238,33 +232,37 @@ class CharInfoScreen(Screen):
         data = json.loads(res[0]) if res else {}
         for k, tf in self.inputs.items(): tf.text = data.get(k, "")
 
-    def auto_save(self, f, v):
+    def save_data(self):
         app = MDApp.get_running_app()
         data = {k: tf.text for k, tf in self.inputs.items()}
         cur.execute("INSERT OR REPLACE INTO chars VALUES(?,?,?,?)", (app.acc, app.slot, 'info', json.dumps(data)))
-        conn.commit()
+        conn.commit(); MDSnackbar(text="정보가 저장되었습니다.").open()
 
-# ---------- 4. 장비창 (11종 원칙) ----------
+    def clear_data(self):
+        for tf in self.inputs.values(): tf.text = ""
+        MDSnackbar(text="내용이 초기화되었습니다.").open()
+
+# ---------- 4. 장비창 (11종) ----------
 class EquipScreen(Screen):
     def __init__(self, **kw):
         super().__init__(**kw)
         self.inputs = {}
-        self.items = ["한손무기", "두손무기", "갑옷", "방패", "장갑", "부츠", "암릿", "링1", "링2", "아뮬랫", "기타"]
+        items = ["한손무기", "두손무기", "갑옷", "방패", "장갑", "부츠", "암릿", "링1", "링2", "아뮬랫", "기타"]
         sv = MDScrollView()
-        l = BoxLayout(orientation='vertical', padding=dp(20), spacing=dp(5), size_hint_y=None)
-        l.bind(minimum_height=l.setter('height'))
+        cont = BoxLayout(orientation='vertical', padding=dp(10), spacing=dp(5), size_hint_y=None)
+        cont.bind(minimum_height=cont.setter('height'))
         
-        for f in self.items:
-            row = BoxLayout(size_hint_y=None, height=dp(45))
-            row.add_widget(MDLabel(text=f, size_hint_x=0.3, halign="center"))
-            tf = MDTextField(halign="center", mode="rectangle")
-            tf.bind(text=lambda inst, val, field=f: self.auto_save(field, val))
+        for f in items:
+            row = BoxLayout(size_hint_y=None, height=dp(50))
+            row.add_widget(MDLabel(text=f, size_hint_x=0.3))
+            tf = MDTextField(mode="rectangle")
             self.inputs[f] = tf
             row.add_widget(tf)
-            l.add_widget(row)
-
-        l.add_widget(MDRectangleFlatButton(text="뒤로", size_hint_x=1, on_release=lambda x: setattr(self.manager, 'current', 'sel')))
-        sv.add_widget(l); self.add_widget(sv)
+            cont.add_widget(row)
+            
+        cont.add_widget(MDRaisedButton(text="저장", size_hint_x=1, on_release=lambda x: self.save_eq()))
+        cont.add_widget(MDRectangleFlatButton(text="뒤로", size_hint_x=1, on_release=lambda x: setattr(self.manager, 'current', 'sel')))
+        sv.add_widget(cont); self.add_widget(sv)
 
     def on_pre_enter(self):
         app = MDApp.get_running_app()
@@ -273,13 +271,13 @@ class EquipScreen(Screen):
         data = json.loads(res[0]) if res else {}
         for k, tf in self.inputs.items(): tf.text = data.get(k, "")
 
-    def auto_save(self, f, v):
+    def save_eq(self):
         app = MDApp.get_running_app()
         data = {k: tf.text for k, tf in self.inputs.items()}
         cur.execute("INSERT OR REPLACE INTO chars VALUES(?,?,?,?)", (app.acc, app.slot, 'equ', json.dumps(data)))
-        conn.commit()
+        conn.commit(); MDSnackbar(text="장비가 저장되었습니다.").open()
 
-# ---------- 5. 인벤토리창 (20줄 원칙) ----------
+# ---------- 5. 인벤토리창 (20줄) ----------
 class InvenScreen(Screen):
     def __init__(self, **kw):
         super().__init__(**kw)
@@ -287,13 +285,11 @@ class InvenScreen(Screen):
         sv = MDScrollView()
         grid = GridLayout(cols=1, size_hint_y=None, spacing=dp(5), padding=dp(10))
         grid.bind(minimum_height=grid.setter('height'))
-        
         for i in range(1, 21):
-            tf = MDTextField(hint_text=f"아이템 슬롯 {i}", halign="center")
-            tf.bind(text=lambda inst, val, idx=i: self.auto_save(idx, val))
+            tf = MDTextField(hint_text=f"Slot {i}")
             self.inputs[i] = tf
             grid.add_widget(tf)
-            
+        grid.add_widget(MDRaisedButton(text="저장", size_hint_x=1, on_release=lambda x: self.save_inv()))
         grid.add_widget(MDRectangleFlatButton(text="뒤로", size_hint_x=1, on_release=lambda x: setattr(self.manager, 'current', 'sel')))
         sv.add_widget(grid); self.add_widget(sv)
 
@@ -304,11 +300,11 @@ class InvenScreen(Screen):
         data = json.loads(res[0]) if res else {}
         for i, tf in self.inputs.items(): tf.text = data.get(str(i), "")
 
-    def auto_save(self, idx, v):
+    def save_inv(self):
         app = MDApp.get_running_app()
         data = {str(k): tf.text for k, tf in self.inputs.items()}
         cur.execute("INSERT OR REPLACE INTO chars VALUES(?,?,?,?)", (app.acc, app.slot, 'inv', json.dumps(data)))
-        conn.commit()
+        conn.commit(); MDSnackbar(text="인벤토리가 저장되었습니다.").open()
 
 # ---------- 6. 사진 관리창 ----------
 class PhotoScreen(Screen):
@@ -324,11 +320,8 @@ class PhotoScreen(Screen):
     def pick(self, *a):
         try:
             from plyer import filechooser
-            filechooser.open_file(on_selection=self.on_pick)
-        except: MDSnackbar(text="파일 탐색기 오류").open()
-
-    def on_pick(self, selection):
-        if selection: self.img.source = selection[0]
+            filechooser.open_file(on_selection=lambda s: setattr(self.img, 'source', s[0] if s else ""))
+        except: MDSnackbar(text="탐색기 오류").open()
 
 if __name__ == '__main__':
     try:

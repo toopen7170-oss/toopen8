@@ -2,24 +2,29 @@
 title = Priston Tale
 package.name = pristontale
 package.domain = org.toopen8
+
 source.dir = .
 source.include_exts = py,png,jpg,kv,atlas,ttf
 source.include_patterns = *
+
 icon.filename = icon.png
 
 version = 1.0
-requirements = python3,kivy==2.3.0,kivymd,pillow,requests,pyjnius,android
+
+requirements = python3,kivy==2.2.1,kivymd==1.1.1,pillow,requests,pyjnius
 
 orientation = portrait
 android.archs = arm64-v8a
-android.allow_backup = True
-# 안드로이드 14(API 34) 필수 권한 및 미디어 접근 권한
-android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES, READ_EXTERNAL_STORAGE, WRITE_EXTERNAL_STORAGE, MANAGE_EXTERNAL_STORAGE
+
+# 🔥 안정 권한만 사용
+android.permissions = INTERNET, CAMERA, READ_MEDIA_IMAGES
 
 android.api = 34
 android.minapi = 21
+
 android.ndk = 25b
 android.ndk_api = 21
+
 android.accept_sdk_license = True
 android.bootstrap = sdl2
 

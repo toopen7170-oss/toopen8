@@ -1,4 +1,4 @@
-name: Build Android APK - Final Victory 65
+name: Build Android APK - Stable
 
 on:
   push:
@@ -8,66 +8,45 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 1. 저장소 체크아웃
+      - name: 1. 체크아웃
         uses: actions/checkout@v4
 
-      - name: 2. 파이썬 3.11 환경 고정 (distutils 보호)
+      - name: 2. Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 3. 시스템 의존성 및 구형 모듈 완벽 세팅
+      - name: 3. 시스템 패키지 설치
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsqlite3-dev python3-setuptools libffi-dev build-essential zip libltdl-dev ffmpeg libssl-dev
-          
+          sudo apt-get install -y \
+            libsqlite3-dev \
+            python3-setuptools \
+            libffi-dev \
+            build-essential \
+            zip \
+            libltdl-dev \
+            ffmpeg \
+            libssl-dev
+
           python -m pip install --upgrade pip
-          # [전수검사 반영] 엔진 호환성을 위해 setuptools를 구버전으로 고정하여 distutils 이슈 해결
-          pip install "setuptools<60.0.0" "sh>=2.0,<3.0" Cython==0.29.33 buildozer kivy kivymd pillow requests
 
-      - name: 4. 빌드 경로 확보 및 라이선스 강제 주입
-        run: |
-          # 모든 경로를 워크스페이스 내부로 수렴
-          SDK_DIR="$GITHUB_WORKSPACE/.buildozer/android/platform/android-sdk"
-          mkdir -p "$SDK_DIR/tools/bin"
-          mkdir -p "$SDK_DIR/licenses"
-          
-          # [핵심] API 34 대응 최신 라이선스 해시값 전수 주입
-          echo -e "8933bad161af4178b1185d1a37fbf41ea5269c55\nd56f5187479451eabf01fb7437c3550b3118b226\n24333f8a71b3d813477583b0b00a6fe40192f722\n84831b9409646a918e30573bab4c9c91346d8abd\n491b01c676f809f471e1944357494a86ca557268\n2f6b0a8809930f78d91c782161b97950c4c478e8" > "$SDK_DIR/licenses/android-sdk-license"
-          
-          # 시스템 sdkmanager 연결
-          SYS_SDK_MGR=$(find /usr/local/lib/android/sdk/cmdline-tools -name sdkmanager | head -n 1)
-          if [ -n "$SYS_SDK_MGR" ]; then
-            ln -sf "$SYS_SDK_MGR" "$SDK_DIR/tools/bin/sdkmanager"
-          fi
+          # 🔥 핵심 (kivy 설치 금지)
+          pip install "setuptools<60.0.0" "sh>=2.0,<3.0" Cython==0.29.33 buildozer
 
-      - name: 5. Buildozer 설정 정밀 강제 고정
+      - name: 4. 환경 설정
         run: |
-          if [ -f "buildozer.spec" ]; then
-            sed -i 's/^android.api = .*/android.api = 34/' buildozer.spec
-            sed -i 's/^#android.build_tools_version = .*/android.build_tools_version = 34.0.0/' buildozer.spec
-            sed -i 's/^android.accept_sdk_license = .*/android.accept_sdk_license = 1/' buildozer.spec
-            sed -i 's/^android.archs = .*/android.archs = arm64-v8a/' buildozer.spec
-            # NDK 버전도 r25b 혹은 r26b 계열로 강제 지정
-            sed -i 's/^#\?android.ndk = .*/android.ndk = 25b/' buildozer.spec
-          fi
-
-      - name: 6. [전수검사 핵심] 시스템 변수 소거 및 최종 빌드
-        run: |
-          # [중요] 시스템이 강제 주입한 NDK r27 변수를 제거하여 충돌 방지
-          unset ANDROID_NDK_HOME
-          unset ANDROID_NDK_ROOT
-          unset ANDROID_NDK
-          
-          # 우리가 설정한 경로만 인식하도록 환경변수 재정의
           export SETUPTOOLS_USE_DISTUTILS=stdlib
-          
-          # 빌드 시작
+
+      - name: 5. 빌드
+        run: |
+          buildozer android clean
           buildozer -v android debug
 
-      - name: 7. 성공한 APK 업로드
+      - name: 6. APK 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: PT1-Victory-65-Success
+          name: Priston-Tale-APK
           path: bin/*.apk

@@ -1,6 +1,7 @@
-python3==3.11
+python3
 kivy==2.3.0
 kivymd==1.1.1
 pillow
 requests
 plyer
+pyjnius

@@ -1,4 +1,4 @@
-name: Build Android APK - FINAL ULTIMATE FIX
+name: Build Android APK - FINAL STABLE
 
 on:
   push:
@@ -10,74 +10,61 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-      - name: 1. 코드 다운로드
+      - name: 1. 체크아웃
         uses: actions/checkout@v4
 
-      - name: 2. Python 설치
+      - name: 2. Python 3.11
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
 
-      - name: 3. 시스템 설치
+      - name: 3. 시스템 패키지 설치
         run: |
           sudo apt-get update
-          sudo apt-get install -y build-essential libffi-dev libssl-dev libsqlite3-dev zip unzip openjdk-17-jdk ffmpeg
+          sudo apt-get install -y \
+            zip unzip openjdk-17-jdk \
+            libffi-dev libssl-dev build-essential \
+            libsqlite3-dev zlib1g-dev
 
-      - name: 4. Python 패키지
+      - name: 4. Python 라이브러리 설치
         run: |
           python -m pip install --upgrade pip
-          pip install "setuptools<60.0.0"
-          pip install cython==0.29.33
-          pip install buildozer kivy kivymd pillow requests plyer
+          pip install "setuptools<60" cython==0.29.33 buildozer
 
-      - name: 5. Android SDK 설치
+      - name: 5. Android SDK 설치 (완전 고정)
         run: |
-          mkdir -p $HOME/android-sdk
-          cd $HOME/android-sdk
+          mkdir -p $HOME/android-sdk/cmdline-tools
+          cd $HOME/android-sdk/cmdline-tools
 
-          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O sdk.zip
-          unzip -q sdk.zip -d cmdline-tools
-          mv cmdline-tools/cmdline-tools cmdline-tools/latest
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+          unzip tools.zip
+          mv cmdline-tools latest
 
           export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
           yes | sdkmanager --licenses
 
-          sdkmanager "platform-tools"
-          sdkmanager "platforms;android-34"
-          sdkmanager "build-tools;34.0.0"
+          sdkmanager \
+            "platform-tools" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
+            "ndk;25.2.9519653"
 
-          mkdir -p $ANDROID_HOME/tools/bin
-          ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
-
-      - name: 6. Buildozer SDK 강제 연결
-        run: |
-          mkdir -p $HOME/.buildozer/android/platform
-          rm -rf $HOME/.buildozer/android/platform/android-sdk
-          ln -s $HOME/android-sdk $HOME/.buildozer/android/platform/android-sdk
-
-      - name: 7. NDK 초기화
+      - name: 6. 환경 변수 고정 (NDK 충돌 제거)
         run: |
           unset ANDROID_NDK_HOME
           unset ANDROID_NDK_ROOT
           unset ANDROID_NDK
 
-      - name: 8. buildozer.spec 수정
-        run: |
-          sed -i 's/^android.api = .*/android.api = 34/' buildozer.spec
-          sed -i 's/^#android.build_tools_version = .*/android.build_tools_version = 34.0.0/' buildozer.spec
-          sed -i 's/^#\?android.ndk = .*/android.ndk = 25b/' buildozer.spec
-
-      - name: 9. APK 빌드
-        run: |
           export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$HOME/android-sdk
+          export ANDROID_SDK_ROOT=$ANDROID_HOME
           export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
           buildozer -v android debug
 
-      - name: 10. APK 업로드
+      - name: 7. APK 업로드
         uses: actions/upload-artifact@v4
         with:
           name: FINAL-APK

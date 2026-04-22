@@ -1,65 +1,24 @@
-name: Build Android APK - FINAL STABLE
+- name: Install Android SDK (완전 해결)
+  run: |
+    mkdir -p $HOME/android-sdk/cmdline-tools
+    cd $HOME/android-sdk/cmdline-tools
 
-on:
-  push:
-    branches: [ main ]
+    wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
+    unzip tools.zip
+    mv cmdline-tools latest
 
-jobs:
-  build:
-    runs-on: ubuntu-latest
+    # 🔥 핵심 추가 (이거 없으면 무조건 터짐)
+    mkdir -p $HOME/android-sdk/tools/bin
+    ln -s $HOME/android-sdk/cmdline-tools/latest/bin/sdkmanager $HOME/android-sdk/tools/bin/sdkmanager
 
-    steps:
-      - uses: actions/checkout@v4
+    export ANDROID_HOME=$HOME/android-sdk
+    export ANDROID_SDK_ROOT=$ANDROID_HOME
+    export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
 
-      - name: Python 3.11
-        uses: actions/setup-python@v5
-        with:
-          python-version: '3.11'
+    yes | sdkmanager --licenses
 
-      - name: Install system packages
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            zip unzip openjdk-17-jdk \
-            libffi-dev libssl-dev build-essential \
-            libsqlite3-dev zlib1g-dev
-
-      - name: Install python deps
-        run: |
-          python -m pip install --upgrade pip
-          pip install "setuptools<60" cython==0.29.33 buildozer
-
-      - name: Install Android SDK (핵심)
-        run: |
-          mkdir -p $HOME/android-sdk/cmdline-tools
-          cd $HOME/android-sdk/cmdline-tools
-
-          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O tools.zip
-          unzip tools.zip
-          mv cmdline-tools latest
-
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-
-          yes | sdkmanager --licenses
-
-          sdkmanager \
-            "platform-tools" \
-            "platforms;android-34" \
-            "build-tools;34.0.0" \
-            "ndk;25.2.9519653"
-
-      - name: Build APK
-        run: |
-          export ANDROID_HOME=$HOME/android-sdk
-          export ANDROID_SDK_ROOT=$ANDROID_HOME
-          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
-
-          buildozer -v android debug
-
-      - name: Upload APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: APK
-          path: bin/*.apk
+    sdkmanager \
+      "platform-tools" \
+      "platforms;android-34" \
+      "build-tools;34.0.0" \
+      "ndk;25.2.9519653"

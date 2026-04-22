@@ -1,4 +1,4 @@
-name: Build Android APK - FINAL REAL FIX
+name: Build Android APK - FINAL ULTIMATE FIX
 
 on:
   push:
@@ -30,13 +30,13 @@ jobs:
           pip install cython==0.29.33
           pip install buildozer kivy kivymd pillow requests plyer
 
-      - name: 5. Android SDK 직접 설치
+      - name: 5. Android SDK 설치
         run: |
           mkdir -p $HOME/android-sdk
           cd $HOME/android-sdk
 
           wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O sdk.zip
-          unzip sdk.zip -d cmdline-tools
+          unzip -q sdk.zip -d cmdline-tools
           mv cmdline-tools/cmdline-tools cmdline-tools/latest
 
           export ANDROID_HOME=$HOME/android-sdk
@@ -48,6 +48,9 @@ jobs:
           sdkmanager "platform-tools"
           sdkmanager "platforms;android-34"
           sdkmanager "build-tools;34.0.0"
+
+          mkdir -p $ANDROID_HOME/tools/bin
+          ln -s $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager $ANDROID_HOME/tools/bin/sdkmanager
 
       - name: 6. Buildozer SDK 강제 연결
         run: |

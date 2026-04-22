@@ -1,26 +1,21 @@
-name: Build Android APK - STABLE FINAL
+name: Build Android APK - FINAL STABLE
 
 on:
   push:
     branches: [ main ]
-  workflow_dispatch:
 
 jobs:
   build:
     runs-on: ubuntu-latest
 
     steps:
-      # 1. 코드 가져오기
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      # 2. Python 설치
-      - name: Setup Python
+      - name: Python 3.11
         uses: actions/setup-python@v5
         with:
-          python-version: "3.10"
+          python-version: '3.11'
 
-      # 3. 시스템 패키지
       - name: Install system packages
         run: |
           sudo apt-get update
@@ -29,14 +24,12 @@ jobs:
             libffi-dev libssl-dev build-essential \
             libsqlite3-dev zlib1g-dev
 
-      # 4. Python 라이브러리 (버전 고정 핵심)
-      - name: Install Python deps
+      - name: Install python deps
         run: |
           python -m pip install --upgrade pip
           pip install "setuptools<60" cython==0.29.33 buildozer
 
-      # 5. Android SDK 완전 수동 설치 (핵심)
-      - name: Install Android SDK
+      - name: Install Android SDK (핵심)
         run: |
           mkdir -p $HOME/android-sdk/cmdline-tools
           cd $HOME/android-sdk/cmdline-tools
@@ -53,11 +46,10 @@ jobs:
 
           sdkmanager \
             "platform-tools" \
-            "platforms;android-33" \
-            "build-tools;33.0.2" \
+            "platforms;android-34" \
+            "build-tools;34.0.0" \
             "ndk;25.2.9519653"
 
-      # 6. 빌드 실행
       - name: Build APK
         run: |
           export ANDROID_HOME=$HOME/android-sdk
@@ -66,7 +58,6 @@ jobs:
 
           buildozer -v android debug
 
-      # 7. 결과 업로드
       - name: Upload APK
         uses: actions/upload-artifact@v4
         with:

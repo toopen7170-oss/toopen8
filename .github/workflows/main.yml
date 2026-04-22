@@ -1,4 +1,4 @@
-name: Build Android APK - Stable
+name: Build Android APK - FINAL FIX
 
 on:
   push:
@@ -8,11 +8,12 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+
     steps:
-      - name: 1. 체크아웃
+      - name: 1. 저장소 다운로드
         uses: actions/checkout@v4
 
-      - name: 2. Python 3.11
+      - name: 2. Python 3.11 고정
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
@@ -20,17 +21,61 @@ jobs:
       - name: 3. 시스템 패키지 설치
         run: |
           sudo apt-get update
-          sudo apt-get install -y libsqlite3-dev python3-setuptools libffi-dev build-essential zip libltdl-dev ffmpeg libssl-dev autoconf automake libtool pkg-config
-          python -m pip install --upgrade pip
-          pip install "setuptools<60.0.0" "sh>=2.0,<3.0" Cython==0.29.33 buildozer
+          sudo apt-get install -y \
+            build-essential \
+            libffi-dev \
+            libssl-dev \
+            libsqlite3-dev \
+            zip \
+            unzip \
+            openjdk-17-jdk \
+            ffmpeg
 
-      - name: 4. 빌드 (Clean 단계 제거로 오류 방지)
+      - name: 4. Python 패키지 설치
         run: |
-          # clean을 빼고 바로 실행해야 엔진 폴더 오류가 나지 않습니다.
+          python -m pip install --upgrade pip
+          pip install "setuptools<60.0.0"
+          pip install cython==0.29.33
+          pip install buildozer kivy kivymd pillow requests plyer
+
+      - name: 5. Android SDK 세팅
+        run: |
+          mkdir -p $HOME/android-sdk
+          cd $HOME/android-sdk
+
+          wget https://dl.google.com/android/repository/commandlinetools-linux-11076708_latest.zip -O sdk.zip
+          unzip sdk.zip -d cmdline-tools
+          mv cmdline-tools/cmdline-tools cmdline-tools/latest
+
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
+
+          yes | sdkmanager --licenses
+
+          sdkmanager "platform-tools"
+          sdkmanager "platforms;android-34"
+          sdkmanager "build-tools;34.0.0"
+
+      - name: 6. NDK 충돌 제거
+        run: |
+          unset ANDROID_NDK_HOME
+          unset ANDROID_NDK_ROOT
+          unset ANDROID_NDK
+
+      - name: 7. buildozer 설정 고정
+        run: |
+          sed -i 's/^android.api = .*/android.api = 34/' buildozer.spec
+          sed -i 's/^#android.build_tools_version = .*/android.build_tools_version = 34.0.0/' buildozer.spec
+          sed -i 's/^#\?android.ndk = .*/android.ndk = 25b/' buildozer.spec
+
+      - name: 8. APK 빌드
+        run: |
+          export ANDROID_HOME=$HOME/android-sdk
+          export PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$ANDROID_HOME/platform-tools:$PATH
           buildozer -v android debug
 
-      - name: 5. APK 업로드
+      - name: 9. APK 업로드
         uses: actions/upload-artifact@v4
         with:
-          name: Priston-Tale-APK
+          name: FINAL-APK
           path: bin/*.apk

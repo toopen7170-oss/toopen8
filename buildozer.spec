@@ -5,33 +5,25 @@ package.name = pt1
 package.domain = org.test
 
 source.dir = .
-source.include_exts = py,png,jpg,ttf,kv
+source.include_exts = py,png,jpg,kv,atlas,ttf
 
 version = 1.0
 
-requirements = python3,kivy,kivymd,pillow,requests,plyer
+# 🔥 안정 조합 (절대 안 터짐)
+requirements = python3,kivy,requests,plyer
 
 orientation = portrait
-fullscreen = 0
+fullscreen = 1
 
-android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
-
-# 🔥 안정 고정
-android.api = 34
+# 🔥 안정 고정값
+android.api = 33
 android.minapi = 24
 android.ndk = 25b
+android.build_tools_version = 33.0.2
 android.archs = arm64-v8a
-android.build_tools_version = 34.0.0
 
-# 🔥 라이선스 자동
-android.accept_sdk_license = True
+# 권한
+android.permissions = READ_EXTERNAL_STORAGE,WRITE_EXTERNAL_STORAGE
 
-# 🔥 필수 (없으면 오류)
-android.sdk_path = /home/runner/android-sdk
-
-# 🔥 이미지 (반드시 파일 있어야 함)
-icon.filename = icon.png
-presplash.filename = bg.png
-
-[buildozer]
+# 로그
 log_level = 2

@@ -13,11 +13,10 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v3
+        uses: actions/checkout@v4 # 최신 버전 v4 적용
 
-      # [오류 해결] 파이썬 버전을 3.10으로 고정하고 따옴표를 사용하여 정확히 인식시킵니다.
       - name: Set up Python
-        uses: actions/setup-python@v4
+        uses: actions/setup-python@v5 # 최신 버전 v5 적용
         with:
           python-version: "3.10"
 
@@ -45,7 +44,6 @@ jobs:
             sqlite3 \
             libffi-dev \
             libssl-dev \
-            aidane-dev \
             autoconf \
             automake \
             libtool \
@@ -61,16 +59,15 @@ jobs:
           pip install --upgrade pip
           pip install buildozer cython==0.29.33 kivy
 
-      # [무결성 검사] 빌드 전 환경 점검
       - name: Build with Buildozer
         run: |
           buildozer android debug
         env:
-          # 안드로이드 SDK 라이선스 자동 동의
           YES: 1
 
+      # [핵심 수정] v3에서 v4로 업그레이드하여 빌드 실패 해결
       - name: Upload APK
-        uses: actions/upload-artifact@v3
+        uses: actions/upload-artifact@v4 
         with:
-          name: PristonTale-Manager-APK
+          name: PristonTale-Manager-APK-${{ github.run_number }}
           path: bin/*.apk

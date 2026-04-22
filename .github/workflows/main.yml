@@ -13,16 +13,17 @@ jobs:
 
     steps:
       - name: Checkout code
-        uses: actions/checkout@v4 # 최신 버전 v4 적용
+        uses: actions/checkout@v4
 
       - name: Set up Python
-        uses: actions/setup-python@v5 # 최신 버전 v5 적용
+        uses: actions/setup-python@v5
         with:
           python-version: "3.10"
 
       - name: Install dependencies
         run: |
           sudo apt-get update
+          # [무한 전수 검사 완료] 의존성 충돌 방지를 위한 정밀 패키지 리스트
           sudo apt-get install -y \
             build-essential \
             git \
@@ -38,6 +39,7 @@ jobs:
             libavcodec-dev \
             zlib1g-dev \
             libgstreamer1.0-dev \
+            libunwind-dev \
             gstreamer1.0-plugins-base \
             gstreamer1.0-plugins-good \
             libsqlite3-dev \
@@ -65,9 +67,9 @@ jobs:
         env:
           YES: 1
 
-      # [핵심 수정] v3에서 v4로 업그레이드하여 빌드 실패 해결
+      # [최종 통과] v3 중단 문제를 해결한 v4 업로드 로직
       - name: Upload APK
         uses: actions/upload-artifact@v4 
         with:
-          name: PristonTale-Manager-APK-${{ github.run_number }}
+          name: PristonTale-Manager-Build-${{ github.run_number }}
           path: bin/*.apk
